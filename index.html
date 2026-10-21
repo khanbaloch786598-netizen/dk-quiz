@@ -935,7 +935,7 @@ function muxMP4(vChunks,vCfg,aChunks,aCfg,totalSec){
     if(aCfg.kind==="opus"){
       let dops;
       const dsc=aCfg.description;
-      if(dsc&&dsc.length>=19&&String.fromCharCode(...dsc.subarray(0,8))==="OpusHead")dops=dsc.subarray(9);
+      if(dsc&&dsc.length>=19&&String.fromCharCode(...dsc.subarray(0,8))==="OpusHead")dops=dsc.subarray(8);
       else{const d=new Uint8Array(11);const dv=new DataView(d.buffer);d[0]=0;d[1]=2;dv.setUint16(2,312);dv.setUint32(4,48000);dv.setUint16(8,0);d[10]=0;dops=d;}
       const opusEntry=u8a(new Uint8Array(6),u16b(1),new Uint8Array(8),u16b(2,16),new Uint8Array(4),u32b(48000<<16),bx("dOps",dops));
       sEntry=bx("Opus",opusEntry);
