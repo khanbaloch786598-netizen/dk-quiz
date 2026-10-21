@@ -764,19 +764,26 @@ function speak(text){
 }
 /* ---------- playback ---------- */
 let playing=false,playRAF=null,playStart=0,lastSegKey="",lastTickSec=-1,lastPopCount=-1,recording=false;
+let playShiftSec=0,lastFrameAt=0,playTimer=null,hiddenAt=0,frameBusy=false;
+document.addEventListener("visibilitychange",()=>{
+  if(!playing)return;
+  if(document.hidden)hiddenAt=performance.now();
+  else if(hiddenAt){playShiftSec+=(performance.now()-hiddenAt)/1000;hiddenAt=0;}
+});
 function runPlayback(onDone){
   if(!validIdx.length){toast("Pehle kuch valid questions paste karein.");return;}
   initAudio(!!onDone);if(AC.state==="suspended")AC.resume();
   const tl=buildTimeline(),total=tl.reduce((a,s)=>a+s.dur,0);
   playing=true;lastSegKey="";lastTickSec=-1;lastPopCount=-1;confettiP=null;
   $("prevBtn").disabled=true;$("createBtn").disabled=true;$("stopBtn").style.display="";
-  startMusic();playStart=performance.now();
+  startMusic();playStart=performance.now();playShiftSec=0;hiddenAt=0;lastFrameAt=performance.now();
   const frame=()=>{
-    if(!playing)return;
-    const t=(performance.now()-playStart)/1000;
+    if(!playing||frameBusy)return;
+    frameBusy=true;lastFrameAt=performance.now();
+    const t=(performance.now()-playStart)/1000-playShiftSec;
     if(t>=total){stopPlaybackUI();stopMusic();if("speechSynthesis" in window)speechSynthesis.cancel();drawStill("question");
       $("status").textContent=onDone?"Creating video… finalizing file.":"Preview finished.";$("playBar").style.width="0%";
-      if(onDone)onDone();return;}
+      frameBusy=false;if(onDone)onDone();return;}
     const st=stateAt(tl,t);drawFrame(st,t);
     $("playBar").style.width=(t/total*100)+"%";
     const key=st.kind+"|"+st.qi+"|"+st.phase;
@@ -790,10 +797,13 @@ function runPlayback(onDone){
     if(st.phase==="count"){const sec=Math.floor(st.phaseT);if(sec!==lastTickSec){lastTickSec=sec;sfx.tick();}}
     $("status").textContent=(onDone?"🎞 Creating video… ":"Playing · ")+fmt(t)+" / "+fmt(total)+(onDone?" — keep this tab open.":"");
     playRAF=requestAnimationFrame(frame);
+    frameBusy=false;
   };
   frame();
+  if(playTimer)clearInterval(playTimer);
+  playTimer=setInterval(()=>{if(playing&&performance.now()-lastFrameAt>180)frame();},100);
 }
-function stopPlaybackUI(){playing=false;if(playRAF)cancelAnimationFrame(playRAF);
+function stopPlaybackUI(){playing=false;if(playRAF)cancelAnimationFrame(playRAF);if(playTimer){clearInterval(playTimer);playTimer=null;}
   $("prevBtn").disabled=false;if(!recording)$("createBtn").disabled=false;$("stopBtn").style.display="none";$("playBar").style.width="0%";}
 function stopAll(){stopPlaybackUI();stopMusic();if("speechSynthesis" in window)speechSynthesis.cancel();drawStill("question");$("status").textContent="Stopped.";}
 function drawStill(which){
@@ -837,33 +847,221 @@ $("prevBtn").addEventListener("click",()=>runPlayback(null));
 $("stopBtn").addEventListener("click",stopAll);
 /* ---------- create video ---------- */
 let outBlob=null,outExt="mp4";
-$("createBtn").addEventListener("click",()=>{
-  if(playing)return;
-  if(!validIdx.length){toast("Pehle valid questions paste karein.");return;}
-  if(balance<validIdx.length){toast(`Balance kam hai — ${validIdx.length} credits chahiyein, balance ${balance} hai. Credits & Billing se buy karein.`);document.querySelector('[data-tab="credits"]').click();return;}
-  initAudio(true);recording=true;
-  const fps=parseInt($("xFps").value)||30;
+function finishVideo(blob,ext,note){
+  outBlob=blob;outExt=ext;recording=false;$("createBtn").disabled=false;
+  const url=URL.createObjectURL(outBlob);const v=$("outVid");v.src=url;v.style.display="block";
+  $("dlBtn").disabled=false;setBalance(balance-validIdx.length);
+  $("status").textContent=`Video ready · ${ext.toUpperCase()} · ${(outBlob.size/1048576).toFixed(1)} MB. Click Download. ${validIdx.length} credits used.${note?" "+note:""}`;
+  toast("Video ready! Download kar lein.");
+}
+/* ----- offline audio: the whole soundtrack rendered by the clock, not in real time ----- */
+function beepAt(ctx,dest,freq,dur,type,vol,t0){
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(Math.max(vol,0.0002),t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(dest);o.start(t0);o.stop(t0+dur+0.05);
+}
+async function renderOfflineAudio(tl,total){
+  const sr=48000,oc=new OfflineAudioContext(2,Math.ceil(sr*total)+sr/4,sr);
+  const master=oc.createGain();master.connect(oc.destination);
+  const fxBus=oc.createGain();fxBus.connect(master);
+  const musBus=oc.createGain();musBus.connect(master);
+  const fx=num("aFx",70)/70;
+  let acc=0;
+  for(const seg of tl){
+    if(seg.kind==="q"){
+      const q=questions[seg.qi];
+      if(seg.phase==="options"&&$("aPop").checked)for(let i=0;i<q.options.length;i++)beepAt(oc,fxBus,520,0.09,"sine",0.25*fx,acc+i*settings().gap);
+      if(seg.phase==="count"&&$("aTick").checked){const stl=$("aTickStyle").value;const f=stl==="Soft tap"?300:stl==="Beep"?880:950;
+        for(let k=0;k<Math.ceil(seg.dur);k++)beepAt(oc,fxBus,f,stl==="Beep"?0.09:0.06,"square",0.10*fx,acc+k);}
+      if(seg.phase==="reveal"&&$("aDing").checked){beepAt(oc,fxBus,880,0.16,"sine",0.3*fx,acc);beepAt(oc,fxBus,1318,0.3,"sine",0.3*fx,acc+0.12);}
+    }
+    acc+=seg.dur;
+  }
+  const mode=$("aMusic").value;
+  if(mode!=="none"){
+    const target=num("aMus",30)/100*0.5,fade=$("aFade").checked;
+    if(fade){musBus.gain.setValueAtTime(0.0001,0);musBus.gain.exponentialRampToValueAtTime(Math.max(target,0.0002),1.2);
+      if(total>4){musBus.gain.setValueAtTime(target,total-1.5);musBus.gain.exponentialRampToValueAtTime(0.0001,total);}}
+    else musBus.gain.value=target;
+    if(mode==="own"&&ownAudioBuf){const src=oc.createBufferSource();src.buffer=ownAudioBuf;src.loop=true;src.connect(musBus);src.start(0,num("aOwnStart",0)%ownAudioBuf.duration);}
+    else{const M=MUSIC[mode]||MUSIC.calm;const stepDur=M.step/1000;let step=0;
+      for(let t0=0;t0<total;t0+=stepDur,step++){const ch=M.chords[step%M.chords.length];
+        ch.forEach(f=>{const o=oc.createOscillator(),g=oc.createGain();o.type=M.type;o.frequency.value=f;
+          g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(mode==="suspense"?0.07:0.11,Math.min(t0+0.35,t0+stepDur*0.9));
+          g.gain.exponentialRampToValueAtTime(0.0001,t0+stepDur*0.95);o.connect(g);g.connect(musBus);o.start(t0);o.stop(t0+stepDur);});}}
+  }
+  return await oc.startRendering();
+}
+/* ----- minimal MP4 muxer (H.264 + AAC) ----- */
+function u8a(...parts){let n=0;for(const p of parts)n+=p.length;const out=new Uint8Array(n);let o=0;for(const p of parts){out.set(p,o);o+=p.length;}return out;}
+function bx(type,...parts){const body=u8a(...parts);const out=new Uint8Array(body.length+8);const dv=new DataView(out.buffer);
+  dv.setUint32(0,body.length+8);for(let i=0;i<4;i++)out[4+i]=type.charCodeAt(i);out.set(body,8);return out;}
+function u32b(...vals){const b=new Uint8Array(4*vals.length);const dv=new DataView(b.buffer);vals.forEach((v,i)=>dv.setUint32(4*i,v>>>0));return b;}
+function u32arr(vals){const b=new Uint8Array(4*vals.length);const dv=new DataView(b.buffer);for(let i=0;i<vals.length;i++)dv.setUint32(4*i,vals[i]>>>0);return b;}
+function u16b(...vals){const b=new Uint8Array(2*vals.length);const dv=new DataView(b.buffer);vals.forEach((v,i)=>dv.setUint16(2*i,v));return b;}
+function strb(s){const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b;}
+function fixed32(x){return u32b(Math.round(x*65536));}
+function mvhdBox(timescale,dur){return bx("mvhd",u32b(0),u32b(0,0),u32b(timescale),u32b(Math.round(dur)),fixed32(1),u16b(0x0100,0),u32b(0,0),
+  u32b(0x00010000,0,0,0,0x00010000,0,0,0,0x40000000),new Uint8Array(24),u32b(3));}
+function tkhdBox(id,dur,w,h,vol){return bx("tkhd",new Uint8Array([0,0,0,7]),u32b(0,0),u32b(id),u32b(0),u32b(Math.round(dur)),u32b(0,0),
+  u16b(0,0),u16b(vol?0x0100:0,0),u32b(0x00010000,0,0,0,0x00010000,0,0,0,0x40000000),fixed32(w),fixed32(h));}
+function mdhdBox(timescale,dur){return bx("mdhd",u32b(0),u32b(0,0),u32b(timescale),u32b(Math.round(dur)),u16b(0x55c4,0));}
+function hdlrBox(kind,name){return bx("hdlr",u32b(0),u32b(0),strb(kind),u32b(0,0,0),strb(name+"\0"));}
+function dinfBox(){const url=bx("url ",new Uint8Array([0,0,0,1]));return bx("dinf",bx("dref",u32b(0),u32b(1),url));}
+function descBox(tag,payload){return u8a(new Uint8Array([tag,payload.length]),payload);}
+function muxMP4(vChunks,vCfg,aChunks,aCfg,totalSec){
+  const fps=vCfg.framerate,frameDur=Math.round(1e6/fps);
+  const ftyp=bx("ftyp",strb("isom"),u32b(512),strb("isomiso2avc1mp41"));
+  let mdatLen=8;for(const c of vChunks)mdatLen+=c.data.length;if(aChunks)for(const c of aChunks)mdatLen+=c.data.length;
+  const base=ftyp.length+mdatLen;
+  // video sample table pieces
+  const vOff=[];{let o=base-vChunks.reduce((a,c)=>a+c.data.length,0)- (aChunks?aChunks.reduce((a,c)=>a+c.data.length,0):0);o=ftyp.length+8;for(const c of vChunks){vOff.push(o);o+=c.data.length;}}
+  const keys=[];vChunks.forEach((c,i)=>{if(c.key)keys.push(i+1);});
+  const avcC=bx("avcC",new Uint8Array(vCfg.record));
+  const avc1=u8a(new Uint8Array(6),u16b(1),new Uint8Array(16),u16b(vCfg.width,vCfg.height),u32b(0x00480000,0x00480000),u32b(0),u16b(1),new Uint8Array(32),u16b(0x0018,0xffff),avcC);
+  const vStbl=bx("stbl",
+    bx("stsd",u32b(0),u32b(1),bx("avc1",avc1)),
+    bx("stts",u32b(0),u32b(1),u32b(vChunks.length),u32b(frameDur)),
+    keys.length?bx("stss",u32b(0),u32b(keys.length),u32arr(keys)):new Uint8Array(0),
+    bx("stsc",u32b(0),u32b(1),u32b(1,1,1)),
+    bx("stsz",u32b(0),u32b(0),u32b(vChunks.length),u32arr(vChunks.map(c=>c.data.length))),
+    bx("stco",u32b(0),u32b(vOff.length),u32arr(vOff)));
+  const vTrak=bx("trak",tkhdBox(1,totalSec*1000,vCfg.width,vCfg.height,false),
+    bx("mdia",mdhdBox(1000000,vChunks.length*frameDur),hdlrBox("vide","VideoHandle"),bx("minf",bx("vmhd",u32b(1),u16b(0,0,0,0)),dinfBox(),vStbl)));
+  let aTrak=null;
+  if(aChunks&&aChunks.length){
+    let o=ftyp.length+8+vChunks.reduce((a,c)=>a+c.data.length,0);const aOff=[];for(const c of aChunks){aOff.push(o);o+=c.data.length;}
+    const asc=new Uint8Array(aCfg.description);
+    const dsi=descBox(0x05,asc);
+    const dcfg=descBox(0x04,u8a(new Uint8Array([0x40,0x15]),new Uint8Array(3),u32b(256000),u32b(128000),dsi));
+    const esds=bx("esds",u32b(0),descBox(0x03,u8a(u16b(2),new Uint8Array([0]),dcfg)),descBox(0x06,new Uint8Array([2])));
+    const mp4a=u8a(new Uint8Array(6),u16b(1),new Uint8Array(8),u16b(2,16),new Uint8Array(4),u32b(48000<<16),esds);
+    // stts: runs of equal sample counts
+    const runs=[];for(const c of aChunks){const last=runs[runs.length-1];if(last&&last[1]===c.samples)last[0]++;else runs.push([1,c.samples]);}
+    const aStbl=bx("stbl",
+      bx("stsd",u32b(0),u32b(1),bx("mp4a",mp4a)),
+      bx("stts",u32b(0),u32b(runs.length),u8a(...runs.map(r=>u32b(r[0],r[1])))),
+      bx("stsc",u32b(0),u32b(1),u32b(1,1,1)),
+      bx("stsz",u32b(0),u32b(0),u32b(aChunks.length),u32arr(aChunks.map(c=>c.data.length))),
+      bx("stco",u32b(0),u32b(aOff.length),u32arr(aOff)));
+    const aDur=aChunks.reduce((a,c)=>a+c.samples,0);
+    aTrak=bx("trak",tkhdBox(2,totalSec*1000,0,0,true),
+      bx("mdia",mdhdBox(48000,aDur),hdlrBox("soun","SoundHandle"),bx("minf",bx("smhd",u32b(0),u16b(0,0)),dinfBox(),aStbl)));
+  }
+  const moov=bx("moov",mvhdBox(1000,totalSec*1000),vTrak,...(aTrak?[aTrak]:[]));
+  const mdatBody=u8a(...vChunks.map(c=>c.data),...(aChunks?aChunks.map(c=>c.data):[]));
+  return new Blob([ftyp,bx("mdat",mdatBody),moov],{type:"video/mp4"});
+}
+/* ----- fast export: frame-by-frame, immune to phone slowdowns ----- */
+async function pickVideoConfig(W,H,fps,bps){
+  if(!("VideoEncoder" in window))return null;
+  const codecs=["avc1.640028","avc1.64001F","avc1.4D401F","avc1.42E01F","avc1.42001E"];
+  for(const codec of codecs)for(const hw of ["prefer-hardware","prefer-software",undefined]){
+    const cfg={codec,width:W,height:H,bitrate:bps,framerate:fps,latencyMode:"quality"};if(hw)cfg.hardwareAcceleration=hw;
+    try{const s=await VideoEncoder.isConfigSupported(cfg);if(s.supported)return s.config||cfg;}catch(e){}
+  }
+  return null;
+}
+async function createViaFast(fps,bps){
+  setCanvasSize();
+  const tl=buildTimeline(),total=tl.reduce((a,s)=>a+s.dur,0),totalFrames=Math.max(1,Math.round(total*fps));
+  const vPick=await pickVideoConfig(cv.width,cv.height,fps,bps);
+  if(!vPick)throw new Error("nocodec");
+  let aOK=false,aCfg=null;
+  if("AudioEncoder" in window){aCfg={codec:"mp4a.40.2",sampleRate:48000,numberOfChannels:2,bitrate:128000};
+    try{const s=await AudioEncoder.isConfigSupported(aCfg);aOK=!!s.supported;}catch(e){aOK=false;}}
+  if(!aOK&&$("xMode").value.startsWith("Auto"))throw new Error("noaudio");
+  $("status").textContent="🎞 Fast export… soundtrack bana raha hai.";
+  const audioBuf=await renderOfflineAudio(tl,total);
+  // encode audio
+  let aChunks=null,aCfgOut=null;
+  if(aOK){
+    aChunks=[];const aEnc=new AudioEncoder({output:(chunk,meta)=>{const b=new Uint8Array(chunk.byteLength);chunk.copyTo(b);
+      if(meta&&meta.decoderConfig&&meta.decoderConfig.description)aCfgOut={description:new Uint8Array(meta.decoderConfig.description)};
+      aChunks.push({data:b,timestamp:chunk.timestamp,samples:0});},error:e=>{throw e;}});
+    aEnc.configure(aCfg);
+    const sr=48000,step=1024,ch0=audioBuf.getChannelData(0),ch1=audioBuf.numberOfChannels>1?audioBuf.getChannelData(1):ch0;
+    const totalSamples=audioBuf.length;let idx=0;
+    for(let off=0;off<totalSamples;off+=step){
+      const n=Math.min(step,totalSamples-off);
+      const bytes=new Float32Array(n*2);bytes.set(ch0.subarray(off,off+n),0);bytes.set(ch1.subarray(off,off+n),n);
+      const ad=new AudioData({format:"f32-planar",sampleRate:sr,numberOfFrames:n,numberOfChannels:2,timestamp:Math.round(off/sr*1e6),data:bytes.buffer});
+      const before=aChunks.length;aEnc.encode(ad);ad.close();
+      if(aChunks.length>before)aChunks[aChunks.length-1].samples=n; else if(aChunks.length)aChunks[aChunks.length-1].samples+=0;
+      idx++;
+      if(aEnc.encodeQueueSize>12)await new Promise(r=>setTimeout(r,2));
+    }
+    await aEnc.flush();aEnc.close();
+    // assign sample counts in order: chunks come out in order; recompute from timestamps is unreliable — recount by re-walking:
+    // (chunks pushed in encode order; sample counts were set on the newest chunk above when possible)
+    let assigned=aChunks.reduce((a,c)=>a+(c.samples||0),0);
+    if(assigned!==totalSamples){let rem=totalSamples;aChunks.forEach((c,i)=>{if(i<aChunks.length-1){c.samples=c.samples||1024;rem-=c.samples;}else c.samples=rem;});}
+    if(!aCfgOut)aChunks=null; // no AudioSpecificConfig -> drop audio rather than ship a broken file
+  }
+  // encode video
+  const vChunks=[];let vCfgOut=null,vErr=null;
+  const vEnc=new VideoEncoder({output:(chunk,meta)=>{const b=new Uint8Array(chunk.byteLength);chunk.copyTo(b);
+    if(meta&&meta.decoderConfig&&meta.decoderConfig.decoderConfigRecord)vCfgOut={record:meta.decoderConfig.decoderConfigRecord,width:vPick.width,height:vPick.height,framerate:fps};
+    vChunks.push({data:b,key:chunk.type==="key"});},error:e=>{vErr=e;}});
+  vEnc.configure(vPick);
+  confettiP=null;
+  for(let f=0;f<totalFrames;f++){
+    if(vErr)throw vErr;
+    const t=f/fps,st=stateAt(tl,t);drawFrame(st,t);
+    const vf=new VideoFrame(cv,{timestamp:Math.round(f*1e6/fps),duration:Math.round(1e6/fps)});
+    vEnc.encode(vf,{keyFrame:f%(fps*2)===0});vf.close();
+    if(vEnc.encodeQueueSize>10)await new Promise(r=>setTimeout(r,2));
+    if(f%15===0){$("status").textContent=`🎞 Fast export… ${Math.round(f/totalFrames*100)}% — page khula rakhein, lekin video atakay ga nahi.`;$("playBar").style.width=(f/totalFrames*100)+"%";
+      await new Promise(r=>setTimeout(r,0));}
+  }
+  await vEnc.flush();vEnc.close();
+  if(!vCfgOut)throw new Error("norecord");
+  $("playBar").style.width="0%";
+  const blob=muxMP4(vChunks,vCfgOut,aChunks,aCfgOut,total);
+  finishVideo(blob,"mp4",aChunks?"Fast export se bani hai — timing bilkul exact hai.":"(Note: is browser me sound encode nahi ho saka, video khamosh hai.)");
+}
+/* ----- compatibility: real-time recording (hardened against stalls) ----- */
+async function createViaRecorder(fps,bps){
+  initAudio(true);
+  let wl=null;try{if(navigator.wakeLock)wl=await navigator.wakeLock.request("screen");}catch(e){}
   const cStream=cv.captureStream(fps);
   const tracks=[...cStream.getVideoTracks()];
   if(streamDest)tracks.push(...streamDest.stream.getAudioTracks());
   const combined=new MediaStream(tracks);
   let mime="video/mp4";
-  if(!MediaRecorder.isTypeSupported(mime)){if($("xMode").value.includes("Fast MP4 only")){toast("Is browser me MP4 support nahi — Compatibility mode use karein.");recording=false;return;}
-    mime=MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")?"video/webm;codecs=vp9,opus":"video/webm";}
+  if(!MediaRecorder.isTypeSupported(mime)){mime=MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")?"video/webm;codecs=vp9,opus":"video/webm";}
   outExt=mime.includes("mp4")?"mp4":"webm";
-  const q=$("xQuality").value;const bps=q==="High"?6000000:q==="Small file"?1500000:3000000;
   const rec=new MediaRecorder(combined,{mimeType:mime,videoBitsPerSecond:bps,audioBitsPerSecond:128000});
   const chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-  rec.onstop=()=>{recording=false;$("createBtn").disabled=false;
-    outBlob=new Blob(chunks,{type:mime.split(";")[0]});
-    const url=URL.createObjectURL(outBlob);const v=$("outVid");v.src=url;v.style.display="block";
-    $("dlBtn").disabled=false;setBalance(balance-validIdx.length);
-    $("status").textContent=`Video ready · ${outExt.toUpperCase()} · ${(outBlob.size/1048576).toFixed(1)} MB. Click Download. ${validIdx.length} credits used.`;toast("Video ready! Download kar lein.");};
-  $("status").textContent="🎞 Creating video… keep this tab open.";
+  const visH=()=>{try{if(document.hidden)rec.pause();else rec.resume();}catch(e){}};
+  document.addEventListener("visibilitychange",visH);
+  rec.onstop=()=>{document.removeEventListener("visibilitychange",visH);if(wl){try{wl.release()}catch(e){}wl=null;}
+    const blob=new Blob(chunks,{type:mime.split(";")[0]});
+    finishVideo(blob,outExt,"");};
+  $("status").textContent="🎞 Creating video… keep this tab open and the screen on.";
   rec.start(250);
   runPlayback(()=>{setTimeout(()=>{try{rec.stop()}catch(e){}},350);});
+}
+$("createBtn").addEventListener("click",async()=>{
+  if(playing||recording)return;
+  if(!validIdx.length){toast("Pehle valid questions paste karein.");return;}
+  if(balance<validIdx.length){toast(`Balance kam hai — ${validIdx.length} credits chahiyein, balance ${balance} hai. Credits & Billing se buy karein.`);document.querySelector('[data-tab="credits"]').click();return;}
+  const fps=parseInt($("xFps").value)||30;
+  const q=$("xQuality").value;const bps=q==="High"?6000000:q==="Small file"?1500000:3000000;
+  const mode=$("xMode").value;
+  recording=true;$("createBtn").disabled=true;
+  if(mode.startsWith("Compatibility")){createViaRecorder(fps,bps);return;}
+  try{await createViaFast(fps,bps);}
+  catch(e){
+    if(mode.startsWith("Fast MP4 only")){recording=false;$("createBtn").disabled=false;
+      $("status").textContent="Fast export is browser me nahi chala. Export mode 'Auto' ya 'Compatibility' chunein.";
+      toast("Fast export is browser me available nahi.");return;}
+    $("status").textContent="Fast export nahi chala — Compatibility recording use ho rahi hai…";
+    createViaRecorder(fps,bps);
+  }
 });
 $("dlBtn").addEventListener("click",()=>{if(!outBlob)return;const a=document.createElement("a");a.href=URL.createObjectURL(outBlob);a.download=($("xName").value.trim()||"quiz-video")+"."+outExt;a.click();});
+
 /* ---------- credits shop ---------- */
 document.querySelectorAll(".price").forEach(p=>p.addEventListener("click",()=>{
   const msg=encodeURIComponent(`Hello, I have paid for quiz video credits. Sending the screenshot. Pack: ${p.dataset.pack}`);
@@ -890,7 +1088,7 @@ $("admBtn").addEventListener("click",()=>{
 /* ---------- init ---------- */
 (function(){const sup=$("xSupport");
   if(window.MediaRecorder&&HTMLCanvasElement.prototype.captureStream){
-    sup.textContent=MediaRecorder.isTypeSupported("video/mp4")?"✔ Fast MP4 export is available in this browser.":"✔ Export is available in this browser (WebM fallback — MP4 not supported here).";}
+    sup.textContent=("VideoEncoder" in window&&"AudioEncoder" in window)?"✔ Fast MP4 export is available in this browser — videos are built frame-by-frame, so they never freeze or stretch.":"✔ Export is available in this browser (real-time recording — keep the tab open and the screen on while a video is created).";}
   else{sup.textContent="⚠ Video export is not supported in this browser — use recent Chrome or Edge.";sup.className="err";}
   updLabels();loadVoices();refreshStats();drawStill("intro");
 })();
