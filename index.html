@@ -1010,10 +1010,24 @@ async function createViaFast(fps,bps){
     if(!aChunks||!aChunks.length)aCfgOut=null; else if(!aCfgOut)aCfgOut={kind:aCfg.codec.startsWith("mp4a")?"aac":"opus",description:null};
   }
   // encode video
-  const vChunks=[];let vCfgOut=null,vErr=null;
+  const vChunks=[];let vCfgOut=null,vErr=null,chunkFmt=null,abSps=null,abPps=null;
   const preRecord=vPick.description?new Uint8Array(vPick.description):null;
-  const vEnc=new VideoEncoder({output:(chunk,meta)=>{const b=new Uint8Array(chunk.byteLength);chunk.copyTo(b);
+  const isAnnexB=d=>d.length>4&&d[0]===0&&d[1]===0&&(d[2]===1||(d[2]===0&&d[3]===1));
+  function annexbToAvcc(d){
+    const starts=[];const scLen=j=>{if(j+3<d.length&&d[j]===0&&d[j+1]===0&&d[j+2]===1)return 3;if(j+4<d.length&&d[j]===0&&d[j+1]===0&&d[j+2]===0&&d[j+3]===1)return 4;return 0;};
+    for(let j=0;j<d.length;){const l=scLen(j);if(l){starts.push([j,l]);j+=l;}else j++;}
+    if(!starts.length)return null;
+    const parts=[];starts.forEach(([pos,l],k)=>{const from=pos+l,to=k+1<starts.length?starts[k+1][0]:d.length;const nal=d.subarray(from,to);if(!nal.length)return;
+      const typ=nal[0]&31;if(typ===7)abSps=nal;else if(typ===8)abPps=nal;parts.push(nal);});
+    let total=0;parts.forEach(p=>total+=4+p.length);const out=new Uint8Array(total);const dv=new DataView(out.buffer);let o=0;
+    parts.forEach(p=>{dv.setUint32(o,p.length);out.set(p,o+4);o+=4+p.length;});
+    return out;
+  }
+  const vEnc=new VideoEncoder({output:(chunk,meta)=>{let b=new Uint8Array(chunk.byteLength);chunk.copyTo(b);
     if(meta&&meta.decoderConfig&&meta.decoderConfig.decoderConfigRecord)vCfgOut={record:meta.decoderConfig.decoderConfigRecord,width:vPick.width,height:vPick.height,framerate:fps};
+    if(chunkFmt===null){chunkFmt=isAnnexB(b)?"annexb":"avcc";
+      window.__dkqDbg={fmt:chunkFmt,firstHex:[...b.subarray(0,12)].map(x=>x.toString(16).padStart(2,"0")).join(" "),metaRec:!!(meta&&meta.decoderConfig&&meta.decoderConfig.decoderConfigRecord),preRec:!!preRecord};}
+    if(chunkFmt==="annexb"){const conv=annexbToAvcc(b);if(conv)b=conv;}
     vChunks.push({data:b,key:chunk.type==="key"});},error:e=>{vErr=e;}});
   vEnc.configure(vPick);
   confettiP=null;
@@ -1029,6 +1043,9 @@ async function createViaFast(fps,bps){
   await vEnc.flush();vEnc.close();
   if(!vCfgOut){
     let rec=preRecord;
+    if(!rec&&abSps&&abPps&&abSps.length>=4){const r=new Uint8Array(11+abSps.length+abPps.length);const dv=new DataView(r.buffer);
+      r[0]=1;r[1]=abSps[1];r[2]=abSps[2];r[3]=abSps[3];r[4]=0xff;r[5]=0xe1;dv.setUint16(6,abSps.length);r.set(abSps,8);
+      r[8+abSps.length]=1;dv.setUint16(9+abSps.length,abPps.length);r.set(abPps,11+abSps.length);rec=r;}
     if(!rec&&vChunks.length){ // build the AVC record from the first chunk's SPS/PPS (AVCC length-prefixed NALs)
       try{const d=vChunks[0].data;let sps=null,pps=null,off=0;
         while(off+5<=d.length){const len=((d[off]<<24)|(d[off+1]<<16)|(d[off+2]<<8)|d[off+3])>>>0;if(len<=0||off+4+len>d.length)break;

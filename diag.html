@@ -41,6 +41,7 @@ document.getElementById("app").addEventListener("load",async()=>{
     const blob=w.outBlob;
     line("createViaFast: OK in "+Math.round(performance.now()-t0)+"ms, blob="+(blob?blob.type+" "+blob.size+" bytes":"null"), !!blob);
   }catch(e){line("createViaFast threw: "+(e.message||e), false);}
+  try{line("chunk debug: "+JSON.stringify(w.__dkqDbg||null));}catch(e){line("chunk debug: n/a");}
   line("DONE");
 });
 </script>
