@@ -931,15 +931,26 @@ function muxMP4(vChunks,vCfg,aChunks,aCfg,totalSec){
   let aTrak=null;
   if(aChunks&&aChunks.length){
     let o=ftyp.length+8+vChunks.reduce((a,c)=>a+c.data.length,0);const aOff=[];for(const c of aChunks){aOff.push(o);o+=c.data.length;}
-    const asc=new Uint8Array(aCfg.description);
-    const dsi=descBox(0x05,asc);
-    const dcfg=descBox(0x04,u8a(new Uint8Array([0x40,0x15]),new Uint8Array(3),u32b(256000),u32b(128000),dsi));
-    const esds=bx("esds",u32b(0),descBox(0x03,u8a(u16b(2),new Uint8Array([0]),dcfg)),descBox(0x06,new Uint8Array([2])));
-    const mp4a=u8a(new Uint8Array(6),u16b(1),new Uint8Array(8),u16b(2,16),new Uint8Array(4),u32b(48000<<16),esds);
+    let sEntry;
+    if(aCfg.kind==="opus"){
+      let dops;
+      const dsc=aCfg.description;
+      if(dsc&&dsc.length>=19&&String.fromCharCode(...dsc.subarray(0,8))==="OpusHead")dops=dsc.subarray(9);
+      else{const d=new Uint8Array(11);const dv=new DataView(d.buffer);d[0]=0;d[1]=2;dv.setUint16(2,312);dv.setUint32(4,48000);dv.setUint16(8,0);d[10]=0;dops=d;}
+      const opusEntry=u8a(new Uint8Array(6),u16b(1),new Uint8Array(8),u16b(2,16),new Uint8Array(4),u32b(48000<<16),bx("dOps",dops));
+      sEntry=bx("Opus",opusEntry);
+    }else{
+      const asc=new Uint8Array(aCfg.description);
+      const dsi=descBox(0x05,asc);
+      const dcfg=descBox(0x04,u8a(new Uint8Array([0x40,0x15]),new Uint8Array(3),u32b(256000),u32b(128000),dsi));
+      const esds=bx("esds",u32b(0),descBox(0x03,u8a(u16b(2),new Uint8Array([0]),dcfg)),descBox(0x06,new Uint8Array([2])));
+      const mp4a=u8a(new Uint8Array(6),u16b(1),new Uint8Array(8),u16b(2,16),new Uint8Array(4),u32b(48000<<16),esds);
+      sEntry=bx("mp4a",mp4a);
+    }
     // stts: runs of equal sample counts
     const runs=[];for(const c of aChunks){const last=runs[runs.length-1];if(last&&last[1]===c.samples)last[0]++;else runs.push([1,c.samples]);}
     const aStbl=bx("stbl",
-      bx("stsd",u32b(0),u32b(1),bx("mp4a",mp4a)),
+      bx("stsd",u32b(0),u32b(1),sEntry),
       bx("stts",u32b(0),u32b(runs.length),u8a(...runs.map(r=>u32b(r[0],r[1])))),
       bx("stsc",u32b(0),u32b(1),u32b(1,1,1)),
       bx("stsz",u32b(0),u32b(0),u32b(aChunks.length),u32arr(aChunks.map(c=>c.data.length))),
@@ -967,36 +978,36 @@ async function createViaFast(fps,bps){
   const tl=buildTimeline(),total=tl.reduce((a,s)=>a+s.dur,0),totalFrames=Math.max(1,Math.round(total*fps));
   const vPick=await pickVideoConfig(cv.width,cv.height,fps,bps);
   if(!vPick)throw new Error("nocodec");
-  let aOK=false,aCfg=null;
-  if("AudioEncoder" in window){aCfg={codec:"mp4a.40.2",sampleRate:48000,numberOfChannels:2,bitrate:128000};
-    try{const s=await AudioEncoder.isConfigSupported(aCfg);aOK=!!s.supported;}catch(e){aOK=false;}}
-  if(!aOK&&$("xMode").value.startsWith("Auto"))throw new Error("noaudio");
+  let aCfg=null;
+  if("AudioEncoder" in window){
+    for(const cand of [{codec:"mp4a.40.2",sampleRate:48000,numberOfChannels:2,bitrate:128000},{codec:"opus",sampleRate:48000,numberOfChannels:2,bitrate:128000,opus:{frameDuration:20000}}]){
+      try{const s=await AudioEncoder.isConfigSupported(cand);if(s.supported){aCfg=s.config||cand;break;}}catch(e){}
+    }
+  }
+  if(!aCfg&&$("xMode").value.startsWith("Auto"))throw new Error("noaudio");
   $("status").textContent="🎞 Fast export… soundtrack bana raha hai.";
   const audioBuf=await renderOfflineAudio(tl,total);
   // encode audio
   let aChunks=null,aCfgOut=null;
-  if(aOK){
-    aChunks=[];const aEnc=new AudioEncoder({output:(chunk,meta)=>{const b=new Uint8Array(chunk.byteLength);chunk.copyTo(b);
-      if(meta&&meta.decoderConfig&&meta.decoderConfig.description)aCfgOut={description:new Uint8Array(meta.decoderConfig.description)};
-      aChunks.push({data:b,timestamp:chunk.timestamp,samples:0});},error:e=>{throw e;}});
+  if(aCfg){
+    aChunks=[];let aErr=null;const defSamples=aCfg.codec==="opus"?960:1024;
+    const aEnc=new AudioEncoder({output:(chunk,meta)=>{const b=new Uint8Array(chunk.byteLength);chunk.copyTo(b);
+      if(meta&&meta.decoderConfig)aCfgOut={kind:aCfg.codec.startsWith("mp4a")?"aac":"opus",description:meta.decoderConfig.description?new Uint8Array(meta.decoderConfig.description):null};
+      aChunks.push({data:b,timestamp:chunk.timestamp,samples:chunk.duration?Math.max(1,Math.round(chunk.duration*48000/1e6)):defSamples});},error:e=>{aErr=e;}});
     aEnc.configure(aCfg);
     const sr=48000,step=1024,ch0=audioBuf.getChannelData(0),ch1=audioBuf.numberOfChannels>1?audioBuf.getChannelData(1):ch0;
-    const totalSamples=audioBuf.length;let idx=0;
+    const totalSamples=audioBuf.length;
     for(let off=0;off<totalSamples;off+=step){
       const n=Math.min(step,totalSamples-off);
       const bytes=new Float32Array(n*2);bytes.set(ch0.subarray(off,off+n),0);bytes.set(ch1.subarray(off,off+n),n);
       const ad=new AudioData({format:"f32-planar",sampleRate:sr,numberOfFrames:n,numberOfChannels:2,timestamp:Math.round(off/sr*1e6),data:bytes.buffer});
-      const before=aChunks.length;aEnc.encode(ad);ad.close();
-      if(aChunks.length>before)aChunks[aChunks.length-1].samples=n; else if(aChunks.length)aChunks[aChunks.length-1].samples+=0;
-      idx++;
+      aEnc.encode(ad);ad.close();
       if(aEnc.encodeQueueSize>12)await new Promise(r=>setTimeout(r,2));
     }
     await aEnc.flush();aEnc.close();
-    // assign sample counts in order: chunks come out in order; recompute from timestamps is unreliable — recount by re-walking:
-    // (chunks pushed in encode order; sample counts were set on the newest chunk above when possible)
-    let assigned=aChunks.reduce((a,c)=>a+(c.samples||0),0);
-    if(assigned!==totalSamples){let rem=totalSamples;aChunks.forEach((c,i)=>{if(i<aChunks.length-1){c.samples=c.samples||1024;rem-=c.samples;}else c.samples=rem;});}
-    if(!aCfgOut)aChunks=null; // no AudioSpecificConfig -> drop audio rather than ship a broken file
+    if(aErr)throw aErr;
+    if(aCfg.codec.startsWith("mp4a")&&!(aCfgOut&&aCfgOut.description))aChunks=null; // AAC needs its config bytes
+    if(!aChunks||!aChunks.length)aCfgOut=null; else if(!aCfgOut)aCfgOut={kind:aCfg.codec.startsWith("mp4a")?"aac":"opus",description:null};
   }
   // encode video
   const vChunks=[];let vCfgOut=null,vErr=null;
