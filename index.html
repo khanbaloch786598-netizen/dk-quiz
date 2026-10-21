@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DK Quiz — Quiz Video Maker</title>
+<meta name="description" content="DK Quiz — paste general knowledge questions and get a ready quiz video. 1 question = 1 credit. Preview is always free.">
+<style>
+:root{
+  --side:#0d1330; --side2:#131c42; --page:#edf0f8; --card:#ffffff; --line:#dde2f0;
+  --txt:#141a30; --mut:#64708f; --acc:#4f46e5; --acc2:#6366f1;
+  --gold:#f5b921; --green:#22c55e; --red:#ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--page);color:var(--txt);font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;min-height:100vh}
+a{color:var(--acc)}
+/* sidebar */
+aside{position:fixed;left:0;top:0;bottom:0;width:238px;background:var(--side);color:#fff;display:flex;flex-direction:column;z-index:60}
+.brand{padding:18px 18px 12px}
+.brand .t{font-size:20px;font-weight:800;display:flex;gap:8px;align-items:center}
+.brand .s{color:#9aa6d8;font-size:12.5px;margin-top:3px}
+nav{padding:8px 10px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;color:#c3cbf5;padding:11px 12px;border-radius:10px;font-size:14.5px;cursor:pointer;font-weight:600}
+nav button:hover{background:var(--side2)}
+nav button.on{background:var(--acc);color:#fff}
+.sideBal{margin:auto 12px 14px;background:var(--side2);border:1px solid #232c5c;border-radius:13px;padding:13px 14px}
+.sideBal small{display:block;color:#9aa6d8;font-size:11px;letter-spacing:.1em;font-weight:700}
+.sideBal b{font-size:23px}
+main{margin-left:238px;padding:18px 18px 50px;max-width:1220px}
+@media(max-width:860px){
+  aside{position:static;width:100%;flex-direction:column}
+  nav{flex-direction:row;overflow-x:auto;padding:8px}
+  nav button{width:auto;white-space:nowrap}
+  .sideBal{margin:8px 12px 12px}
+  main{margin-left:0}
+}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:700px){.stats{grid-template-columns:1fr 1fr}}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.stat small{display:block;color:var(--mut);font-size:10.5px;letter-spacing:.12em;font-weight:700;margin-bottom:5px}
+.stat b{font-size:21px}
+.stat b.need{color:var(--red)}
+.layout{display:grid;grid-template-columns:1fr 430px;gap:16px;align-items:start}
+@media(max-width:1080px){.layout{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(20,26,48,.05)}
+.card h2{font-size:20px;margin-bottom:6px}
+.card h3{font-size:16px;margin-bottom:6px}
+.card p{color:var(--mut);font-size:13.5px;line-height:1.55}
+textarea{width:100%;min-height:290px;background:#fbfcff;border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:12px;font-family:Consolas,Menlo,monospace;font-size:13.5px;line-height:1.55;resize:vertical;margin-top:12px}
+textarea:focus,input:focus,select:focus{outline:2px solid var(--acc2)}
+input[type=text],input[type=number],input[type=password],select{width:100%;background:#fbfcff;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:10px 12px;font-size:14px;margin-top:5px}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 0 0;font-weight:600}
+input[type=color]{width:100%;height:38px;border:1px solid var(--line);border-radius:10px;background:#fbfcff;margin-top:5px;padding:3px}
+input[type=range]{width:100%;margin-top:8px;accent-color:var(--acc)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.row{grid-template-columns:1fr}}
+.check{display:flex;align-items:center;gap:9px;font-size:14px;color:var(--txt);margin-top:11px;font-weight:500}
+.check input{width:17px;height:17px;accent-color:var(--acc)}
+.btn{border:1px solid var(--line);background:#f2f4fb;color:var(--txt);padding:10px 16px;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer}
+.btn:hover{border-color:var(--acc2)}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.primary:disabled,.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.gold{background:var(--green);border-color:var(--green);color:#fff}
+.btn.stop{background:var(--red);border-color:var(--red);color:#fff}
+.btnrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+.ok{color:#16a34a;font-size:13.5px;margin-top:10px;font-weight:600}
+.err{color:var(--red);font-size:13px;margin-top:6px}
+.tab{display:none}.tab.on{display:block}
+.price{background:#fbfcff;border:1px solid var(--line);border-radius:14px;padding:18px;text-align:center;margin-top:12px;cursor:pointer}
+.price:hover{border-color:var(--acc)}
+.price.hot{border:2px solid var(--acc);background:#eef0fe}
+.price b{font-size:27px;display:block}
+.price span{color:var(--mut);font-size:13px}
+.price .rs{color:var(--txt);font-weight:700;font-size:15px;margin-top:3px}
+.previewCard{position:sticky;top:16px}
+@media(max-width:1080px){.previewCard{position:static}}
+canvas{width:100%;border-radius:14px;background:#1b1040;display:block;aspect-ratio:16/9}
+canvas.vertical{aspect-ratio:9/16;max-height:560px;width:auto;margin:0 auto;max-width:100%}
+.jump{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.jump button{flex:1;border:1px solid var(--line);background:#f2f4fb;color:var(--txt);border-radius:9px;padding:8px 4px;font-size:12.5px;cursor:pointer;font-weight:600}
+.pbar{height:7px;background:#e3e7f4;border-radius:99px;margin-top:12px;overflow:hidden}
+.pbar i{display:block;height:100%;width:0;background:var(--acc);border-radius:99px}
+video.out{width:100%;border-radius:14px;margin-top:12px;background:#000;display:none}
+.note{font-size:12.5px;color:var(--mut);margin-top:9px;line-height:1.55}
+code{background:#0d1330;border-radius:8px;display:block;padding:12px;font-size:12.5px;white-space:pre-wrap;color:#c9d2ff;margin-top:8px}
+.helpsec h3{margin:16px 0 6px;font-size:16px}
+.helpsec li{color:var(--mut);font-size:13.5px;line-height:1.65;margin-left:18px}
+.helpsec p{color:var(--mut);font-size:13.5px;line-height:1.6}
+details{border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-top:14px;background:#fbfcff}
+summary{cursor:pointer;font-weight:700;font-size:15px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#131c42;border:1px solid var(--acc);color:#fff;padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;z-index:99;display:none;max-width:92vw;text-align:center}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><div class="t">🎬 DK Quiz</div><div class="s">Quiz Video Maker · by Danish</div></div>
+  <nav id="tabs">
+    <button data-tab="create" class="on">📝 Create</button>
+    <button data-tab="design">🎨 Design</button>
+    <button data-tab="brand">🏷 Logo &amp; Branding</button>
+    <button data-tab="timing">⏱ Timing</button>
+    <button data-tab="audio">🔊 Audio &amp; Voice</button>
+    <button data-tab="export">📤 Export</button>
+    <button data-tab="credits">💳 Credits &amp; Billing</button>
+    <button data-tab="help">❓ Help</button>
+  </nav>
+  <div class="sideBal"><small>CREDIT BALANCE</small><b id="sideBalV">0</b></div>
+</aside>
+
+<main>
+  <div class="stats">
+    <div class="stat"><small>QUESTIONS</small><b><span id="stQ">0</span> / 200</b></div>
+    <div class="stat"><small>VIDEO LENGTH</small><b id="stLen">0:00</b></div>
+    <div class="stat"><small>CREDITS NEEDED</small><b class="need" id="stNeed">0</b></div>
+    <div class="stat"><small>BALANCE</small><b id="stBal">0</b></div>
+  </div>
+
+  <div class="layout">
+  <div>
+  <!-- CREATE -->
+  <section class="tab on" id="tab-create">
+    <div class="card">
+      <h2>Quiz questions</h2>
+      <p>Up to 200 questions per video. Paste them in any order: blank lines are optional. The app finds each question, its A to D options and the answer by itself.</p>
+      <textarea id="qbox">What is the capital of Pakistan?
+A) Karachi
+B) Lahore
+C) Islamabad
+D) Quetta
+Answer: C
+
+Which is the largest planet in our solar system?
+A) Earth
+B) Jupiter
+C) Mars
+D) Saturn
+Answer: B
+
+What is 2 + 2 x 3 ?
+A) 12
+B) 8
+C) 10
+D) 6
+Answer: B
+
+What is the chemical formula of water?
+A) CO2
+B) O2
+C) H2O
+D) NaCl
+Answer: C</textarea>
+      <div id="parseMsg"></div>
+      <div class="btnrow">
+        <label class="btn" style="margin:0;cursor:pointer">📂 Load file (.txt / .csv)<input type="file" id="fileIn" accept=".txt,.csv" hidden></label>
+        <button class="btn" id="clearBtn">🗑 Clear</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- DESIGN -->
+  <section class="tab" id="tab-design">
+    <div class="card">
+      <h3>Format &amp; theme</h3>
+      <p>Pick a theme or set every colour yourself.</p>
+      <label>Video size</label>
+      <select id="dSize"><option value="16:9">16:9 · YouTube</option><option value="9:16">9:16 · Shorts / Reels / TikTok</option></select>
+      <label>Theme (changes the whole design)</label>
+      <select id="dTheme"><option value="">Choose a theme…</option><option value="royal">Royal</option><option value="neon">Neon night</option><option value="tv">TV quiz show</option><option value="minimal">Minimal white</option><option value="kids">Kids fun</option><option value="darkpro">Dark pro</option><option value="classroom">Classroom</option><option value="ocean">Ocean breeze</option><option value="sunset">Sunset glow</option><option value="forest">Forest</option><option value="retro">Retro arcade</option><option value="luxury">Luxury gold</option></select>
+      <label>Colour palette</label>
+      <select id="dPalette"><option>Royal</option><option>Ocean</option><option>Sunset</option><option>Forest</option><option>Midnight</option><option>Rose</option><option>Slate</option><option>Clean (light)</option><option>Mint (light)</option><option>Custom</option></select>
+      <div class="row">
+        <div><label>Background 1</label><input type="color" id="dBg1" value="#150a3d"></div>
+        <div><label>Background 2</label><input type="color" id="dBg2" value="#4c1d95"></div>
+      </div>
+      <div class="row">
+        <div><label>Accent colour</label><input type="color" id="dAcc" value="#f5b921"></div>
+        <div><label>Correct answer colour</label><input type="color" id="dCorrect" value="#22c55e"></div>
+      </div>
+      <label>Background style</label>
+      <select id="dBgStyle"><option>Gradient diagonal</option><option>Gradient vertical</option><option>Radial glow</option><option>Solid colour</option></select>
+      <label>Text colour</label>
+      <select id="dText"><option value="auto">Auto</option><option value="white">White</option><option value="dark">Dark</option></select>
+    </div>
+    <div class="card">
+      <h3>Typography &amp; shapes</h3>
+      <label>Font</label>
+      <select id="dFont"><option>Modern</option><option>Classic</option><option>Friendly</option><option>Typewriter</option><option>Bold</option><option>Wide</option></select>
+      <label>Text size: <span id="dTextSizeV">100%</span></label>
+      <input type="range" id="dTextSize" min="70" max="130" value="100">
+      <label>Option corner radius: <span id="dRadiusV">20px</span></label>
+      <input type="range" id="dRadius" min="0" max="55" value="20">
+      <label>Option labels</label>
+      <select id="dLabels"><option value="ABCD">A B C D</option><option value="1234">1 2 3 4</option><option value="none">No labels</option></select>
+      <label>Option card style</label>
+      <select id="dCardStyle"><option>Glass</option><option>Solid white</option><option>Outline</option><option>Neon glow</option><option>Flat 3D</option></select>
+      <label>Question style</label>
+      <select id="dQStyle"><option>Plain text</option><option>Panel card</option><option>Accent bar</option><option>Centered</option></select>
+      <label>Letter badge shape</label>
+      <select id="dBadge"><option>Circle</option><option>Rounded square</option></select>
+    </div>
+    <div class="card">
+      <h3>Elements</h3>
+      <p>Show or hide parts of the video.</p>
+      <label class="check"><input type="checkbox" id="eCounter" checked> Show “Question 3 / 20” counter</label>
+      <label class="check"><input type="checkbox" id="eProgress" checked> Show progress bar</label>
+      <label>Countdown style</label>
+      <select id="eCdStyle"><option>Stopwatch (recommended)</option><option>Circle</option><option>Bar</option><option>Hidden</option></select>
+      <label>Watch / timer design</label>
+      <select id="eWatch"><option>Sport watch</option><option>Gold classic</option><option>Neon ring</option><option>Minimal ring</option><option>Digital LCD</option></select>
+      <label>Watch size: <span id="eWatchV">100%</span></label>
+      <input type="range" id="eWatchSize" min="70" max="120" value="100">
+      <label>Background animation</label>
+      <select id="eAnim"><option>Floating bubbles</option><option>Moving dots</option><option>None</option></select>
+      <label class="check"><input type="checkbox" id="eConfetti" checked> Confetti when the answer is revealed</label>
+      <label class="check"><input type="checkbox" id="eDim" checked> Dim wrong options when answer is revealed</label>
+      <label class="check"><input type="checkbox" id="eBanner" checked> Show “Correct answer” banner</label>
+    </div>
+  </section>
+
+  <!-- BRANDING -->
+  <section class="tab" id="tab-brand">
+    <div class="card">
+      <h3>Logo &amp; brand</h3>
+      <p>Placed in a corner of every video frame.</p>
+      <label>Brand / channel name</label>
+      <input type="text" id="bName" placeholder="e.g. DK Quiz Academy">
+      <label>Logo corner</label>
+      <select id="bCorner"><option>Top left</option><option selected>Top right</option><option>Bottom left</option><option>Bottom right</option></select>
+      <label>Logo size: <span id="bSizeV">56px</span></label>
+      <input type="range" id="bSize" min="30" max="80" value="56">
+      <label>Logo opacity: <span id="bOpV">100%</span></label>
+      <input type="range" id="bOpacity" min="20" max="100" value="100">
+      <label>Logo image</label>
+      <div class="btnrow"><label class="btn" style="margin:0;cursor:pointer">Choose File<input type="file" id="bLogo" accept="image/*" hidden></label><span class="note" id="bLogoName">No file chosen</span></div>
+    </div>
+    <div class="card">
+      <h3>Intro slide</h3>
+      <p>Set seconds to 0 to turn off.</p>
+      <label>Intro seconds</label><input type="number" id="bIntroSec" value="3" min="0" max="15" step="0.5">
+      <label>Intro title</label><input type="text" id="bIntroTitle" value="Quiz Time!">
+      <label>Intro subtitle</label><input type="text" id="bIntroSub" value="Test your knowledge">
+    </div>
+    <div class="card">
+      <h3>Outro slide</h3>
+      <p>Set seconds to 0 to turn off.</p>
+      <label>Outro seconds</label><input type="number" id="bOutroSec" value="3" min="0" max="15" step="0.5">
+      <label>Outro title</label><input type="text" id="bOutroTitle" value="Thanks for watching!">
+      <label>Outro subtitle</label><input type="text" id="bOutroSub" value="Like · Share · Subscribe">
+    </div>
+  </section>
+
+  <!-- TIMING -->
+  <section class="tab" id="tab-timing">
+    <div class="card">
+      <h3>Timing (seconds)</h3>
+      <p>Control the pace of every question.</p>
+      <label>Delay before options</label><input type="number" id="tDelay" value="0.8" min="0" max="10" step="0.1">
+      <label>Gap between options</label><input type="number" id="tGap" value="0.5" min="0" max="5" step="0.1">
+      <label>Countdown timer</label><input type="number" id="tCount" value="5" min="1" max="60" step="1">
+      <label>Answer reveal time</label><input type="number" id="tReveal" value="3" min="1" max="15" step="0.5">
+    </div>
+  </section>
+
+  <!-- AUDIO -->
+  <section class="tab" id="tab-audio">
+    <div class="card">
+      <h3>Sound effects &amp; music</h3>
+      <p>Everything here is included inside the video file.</p>
+      <label class="check"><input type="checkbox" id="aTick" checked> Clock ticking during countdown</label>
+      <label class="check"><input type="checkbox" id="aPop" checked> Option “pop” sound</label>
+      <label class="check"><input type="checkbox" id="aDing" checked> Correct-answer “ding”</label>
+      <label>Tick style</label>
+      <select id="aTickStyle"><option>Clock tick</option><option>Soft tap</option><option>Beep</option></select>
+      <label>Effects volume: <span id="aFxV">70%</span></label>
+      <input type="range" id="aFx" min="0" max="100" value="70">
+      <label>Background music</label>
+      <select id="aMusic"><option value="calm" selected>Calm pad (free, built-in)</option><option value="lofi">Chill lo-fi (free, built-in)</option><option value="upbeat">Upbeat (free, built-in)</option><option value="game">Game show (free, built-in)</option><option value="suspense">Suspense (free, built-in)</option><option value="own">My own music file</option><option value="none">Off</option></select>
+      <label>Music volume: <span id="aMusV">30%</span></label>
+      <input type="range" id="aMus" min="0" max="100" value="30">
+      <label class="check"><input type="checkbox" id="aFade" checked> Fade music in and out</label>
+      <label>Own music file (MP3 / WAV / M4A)</label>
+      <div class="btnrow"><label class="btn" style="margin:0;cursor:pointer">Choose File<input type="file" id="aOwn" accept="audio/*" hidden></label><span class="note" id="aOwnName">No file chosen</span></div>
+      <label>Own music: start from (seconds)</label><input type="number" id="aOwnStart" value="0" min="0" step="1">
+      <div class="btnrow"><button class="btn" id="listenBtn">▶ Listen to selected music</button></div>
+      <p class="note">Built-in tracks are generated by this app, so there are no copyright claims. If you upload your own song, make sure you have the right to use it (royalty-free sources: Pixabay Music, YouTube Audio Library). Uploaded music is not kept after you close the page, so choose it again next time.</p>
+    </div>
+    <div class="card">
+      <h3>Voice reader (Preview only)</h3>
+      <p>Uses voices installed on this device. A browser cannot place its voice into the downloaded file.</p>
+      <label>Voice type</label>
+      <select id="aVoiceType"><option value="all">All voices</option><option value="female">Female</option><option value="male">Male</option></select>
+      <label>Language</label>
+      <select id="aVoiceLang"><option value="all">All languages</option><option value="en">English</option><option value="hi">Hindi</option><option value="ur">Urdu</option><option value="ar">Arabic</option></select>
+      <label>Voice</label>
+      <select id="aVoiceSel"><option value="off">Off (no voice)</option></select>
+      <div id="voiceMsg"></div>
+      <label>Read aloud</label>
+      <select id="aRead"><option value="q">Question only</option><option value="qo" selected>Question + options</option><option value="qoa">Question + options + answer</option></select>
+      <label>Speed: <span id="aRateV">100%</span></label><input type="range" id="aRate" min="50" max="200" value="100">
+      <label>Pitch: <span id="aPitchV">100%</span></label><input type="range" id="aPitch" min="50" max="200" value="100">
+      <label>Voice volume: <span id="aVolV">100%</span></label><input type="range" id="aVol" min="0" max="100" value="100">
+      <div class="btnrow"><button class="btn" id="testVoiceBtn">🔈 Test voice</button></div>
+    </div>
+  </section>
+
+  <!-- EXPORT -->
+  <section class="tab" id="tab-export">
+    <div class="card">
+      <h3>Export settings</h3>
+      <label>Export mode</label>
+      <select id="xMode"><option>Auto (fast MP4 when available)</option><option>Fast MP4 only</option><option>Compatibility (real-time recording)</option></select>
+      <label>Frame rate</label>
+      <select id="xFps"><option value="30">30 fps (smooth)</option><option value="24">24 fps (smaller)</option></select>
+      <label>Quality</label>
+      <select id="xQuality"><option>Small file</option><option selected>Standard</option><option>High</option></select>
+      <label>File name</label><input type="text" id="xName" value="quiz-video">
+      <p class="ok" id="xSupport">✓ Checking export support…</p>
+      <p class="note">Creating a video uses credits (1 per question) — only when the video is created successfully. Preview is always free.</p>
+    </div>
+  </section>
+
+  <!-- CREDITS -->
+  <section class="tab" id="tab-credits">
+    <div class="card">
+      <h3>Buy credits</h3>
+      <p>1 question = 1 credit. Preview is always free. Credits are used only when a video is created successfully.</p>
+      <div class="price" data-pack="100 credits · Rs 200"><b>100</b><span>credits</span><div class="rs">Rs 200</div></div>
+      <div class="price hot" data-pack="500 credits · Rs 1,000"><b>500</b><span>credits</span><div class="rs">Rs 1,000</div></div>
+      <div class="price" data-pack="1,000 credits · Rs 2,000"><b>1,000</b><span>credits</span><div class="rs">Rs 2,000</div></div>
+      <ul style="color:var(--mut);font-size:13.5px;line-height:1.75;margin:14px 0 0 18px">
+        <li>Send the payment to Easypaisa / JazzCash: <b style="color:var(--txt)" id="payNum">WhatsApp par number lein</b></li>
+        <li>Send the payment screenshot on WhatsApp.</li>
+        <li>You will receive a voucher code. Enter it below to add your credits.</li>
+      </ul>
+      <div class="btnrow"><a class="btn gold" style="text-decoration:none" target="_blank" href="https://wa.me/923184617368?text=Hello%2C%20I%20have%20paid%20for%20quiz%20video%20credits.%20Sending%20the%20screenshot.">Send screenshot on WhatsApp</a></div>
+    </div>
+    <div class="card">
+      <h3>Redeem voucher</h3>
+      <div class="row"><input type="text" id="vCode" placeholder="DKQ-1000-XXXXXX-000"><button class="btn primary" id="vBtn">Redeem</button></div>
+      <div id="vMsg"></div>
+      <p class="note">New accounts start with <b>0 credits</b>. Buy a pack above, or enter a redeem code if one was given to you.</p>
+      <details>
+        <summary>Admin · voucher generator</summary>
+        <label>Admin password</label><input type="password" id="admPass" placeholder="Admin password">
+        <div class="row">
+          <div><label>Credits per code</label><input type="number" id="admAmt" value="100" min="1"></div>
+          <div><label>Number of codes</label><input type="number" id="admNum" value="1" min="1" max="50"></div>
+        </div>
+        <div class="btnrow"><button class="btn" id="admBtn">Generate codes</button></div>
+        <div id="admOut"></div>
+      </details>
+    </div>
+  </section>
+
+  <!-- HELP -->
+  <section class="tab" id="tab-help">
+    <div class="card helpsec">
+      <h2>Help</h2>
+      <h3>How to write your questions</h3>
+      <code>Question text
+A) Option one
+B) Option two
+C) Option three
+D) Option four
+Answer: B
+(then the next question. Blank lines between questions are optional)</code>
+      <p style="margin-top:10px">CSV / Excel also works, one question per line:</p>
+      <code>Question,Option A,Option B,Option C,Option D,B</code>
+      <h3>Formats that are understood automatically</h3>
+      <ul>
+        <li>Numbered questions: <b>1.</b> or <b>Q1:</b> or <b>Question 2)</b> (the number is removed).</li>
+        <li>Options: <b>A)</b> <b>a.</b> <b>(a)</b> <b>A:</b> <b>A -</b>, or all on one line: <i>A) Red B) Blue C) Green D) Pink</i>.</li>
+        <li>Answer: <b>Answer: B</b>, <b>Ans B</b>, <b>Correct: (b)</b>, <b>Answer: Islamabad</b> (the option text), or put <b>✔</b> after the correct option.</li>
+        <li>Questions can run over several lines.</li>
+        <li>If a question cannot be understood, the page lists it under the text box so you can fix it.</li>
+      </ul>
+      <h3>Good to know</h3>
+      <ul>
+        <li>Maximum <b>200 questions</b> per video, 2 to 4 options each.</li>
+        <li><b>Fast export</b> builds a real MP4 file (H.264 + AAC) quicker than real time and plays in phone galleries, WhatsApp, YouTube and video editors. It needs a recent Chrome or Edge on a computer or Android. Keep the tab open until it finishes.</li>
+        <li><b>Compatibility mode</b> records in real time. Use it only if fast export is not available.</li>
+        <li>Clock ticks, sound effects and background music are included in the video file. Pick a free built-in music track, or upload your own MP3 / WAV / M4A file in Audio &amp; Voice.</li>
+        <li>The spoken voice reads questions aloud in <b>Preview only</b>. A browser cannot place its voice inside the video file, so add a voice-over in any video editor if you need it.</li>
+        <li>Available voices depend on your device. Windows, Mac, Android and iPhone each provide their own list.</li>
+        <li>For very long videos (100+ questions) use a computer and pick the <b>Small file</b> quality. Phones may run out of memory.</li>
+        <li>Download your video before closing the page.</li>
+      </ul>
+    </div>
+  </section>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="card previewCard">
+    <h3>Preview &amp; export</h3>
+    <canvas id="cv" width="1280" height="720" style="margin-top:12px"></canvas>
+    <div class="jump">
+      <button data-jump="question">Question</button><button data-jump="answer">Answer</button><button data-jump="intro">Intro</button><button data-jump="outro">Outro</button>
+    </div>
+    <div class="pbar"><i id="playBar"></i></div>
+    <div class="btnrow">
+      <button class="btn" id="prevBtn">▶ Preview (free)</button>
+      <button class="btn stop" id="stopBtn" style="display:none">■ Stop</button>
+      <button class="btn primary" id="createBtn">🎞 Create video</button>
+      <button class="btn" id="dlBtn" disabled>⬇ Download</button>
+    </div>
+    <p class="note" id="status">Paste your questions to begin.</p>
+    <video class="out" id="outVid" controls playsinline></video>
+  </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const WA="923184617368", ADMIN_PASS="dkquiz786";
+/* ---------- credits ---------- */
+let balance=parseInt(localStorage.getItem("dkq_balance"));
+if(isNaN(balance)){balance=0;localStorage.setItem("dkq_balance",balance);}
+function setBalance(v){balance=v;localStorage.setItem("dkq_balance",v);refreshStats();}
+function usedCodes(){try{return JSON.parse(localStorage.getItem("dkq_used")||"[]")}catch(e){return[]}}
+function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";setTimeout(()=>e.style.display="none",3400);}
+/* ---------- parsing ---------- */
+function parseQuestions(raw){
+  const qs=[];if(!raw||!raw.trim())return qs;
+  const lines=raw.replace(/\r/g,"").split("\n");
+  const ne=lines.filter(l=>l.trim());
+  if(ne.length&&ne.filter(l=>(l.match(/,/g)||[]).length>=5).length>=Math.max(1,ne.length*0.6)){
+    for(const l of ne){const p=l.split(",").map(s=>s.trim());if(p.length<3)continue;
+      const opts=p.slice(1,5).filter(x=>x!=="");let ans=(p[5]||"").trim();
+      let ai=/^[A-D]$/i.test(ans)?"ABCD".indexOf(ans.toUpperCase()):opts.findIndex(o=>o.toLowerCase()===ans.toLowerCase());
+      qs.push({text:p[0],options:opts,answer:ai});}
+    return qs;
+  }
+  let cur=null;const push=()=>{if(cur){qs.push(cur);cur=null;}};
+  const optRe=/^\(?\s*([A-Da-d])\s*(?:\)|\.|\:|\-)\s*(.+)$/;
+  const inlineRe=/\(?([A-Da-d])\)[\s]+/g;
+  function addInline(line){
+    const idx=[];let m;inlineRe.lastIndex=0;
+    while((m=inlineRe.exec(line))!==null)idx.push({L:m[1].toUpperCase(),i:m.index,e:inlineRe.lastIndex});
+    if(idx.length<2)return false;
+    idx.forEach((o,k)=>{const end=k+1<idx.length?idx[k+1].i:line.length;const txt=line.slice(o.e,end).trim();if(txt)cur.options["ABCD".indexOf(o.L)]=txt;});
+    // peel a trailing "Answer: B" stuck inside the last option's text
+    for(let i=cur.options.length-1;i>=0;i--){if(!cur.options[i])continue;
+      const tm=cur.options[i].match(/^(.*?)\s+(?:answer|ans)\s*[:\-\.]?\s*\(?([A-Da-d])\)?\s*$/i);
+      if(tm){cur.options[i]=tm[1].trim();cur.answer="ABCD".indexOf(tm[2].toUpperCase());}break;}
+    return true;
+  }
+  function splitInline(line){ // "Question text? A) One B) Two C) Three" all on ONE line
+    const re=/(?:^|\s)\(?([A-Da-d])\)\s+/g;let m;const idx=[];
+    while((m=re.exec(line))!==null)idx.push({L:m[1].toUpperCase(),start:m.index,end:re.lastIndex});
+    if(idx.length<2||idx[0].start===0)return null;
+    const qtext=line.slice(0,idx[0].start).replace(/[✔✓]/g,"").trim();if(!qtext)return null;
+    const opts=[];let ans=-1;
+    idx.forEach((o,k)=>{let txt=line.slice(o.end,k+1<idx.length?idx[k+1].start:line.length).trim();
+      if(txt.includes("✔")||txt.includes("✓")){ans="ABCD".indexOf(o.L);txt=txt.replace(/[✔✓]/g,"").trim();}
+      const tm=txt.match(/^(.*?)\s+(?:answer|ans)\s*[:\-\.]?\s*\(?([A-Da-d])\)?\s*$/i);
+      if(tm){txt=tm[1].trim();ans="ABCD".indexOf(tm[2].toUpperCase());}
+      if(txt)opts["ABCD".indexOf(o.L)]=txt;});
+    return{qtext,opts,ans};
+  }
+  for(let rawLine of lines){
+    let line=rawLine.trim();if(!line)continue;
+    let am=line.match(/^(answer|ans|correct\s*answer|correct)\s*[:\-\.]?\s*\(?([A-Da-d])\)?\s*[\.\)\-]?\s*(.*)$/i);
+    if(am&&cur){let ai="ABCD".indexOf(am[2].toUpperCase());let rest=(am[3]||"").trim();
+      if(rest){const byText=cur.options.findIndex(o=>o&&o.toLowerCase()===rest.toLowerCase());if(byText>=0)ai=byText;}
+      cur.answer=ai;continue;}
+    let am2=line.match(/^(answer|ans)\s*[:\-]\s*(.+)$/i);
+    if(am2&&cur){const byText=cur.options.findIndex(o=>o&&o.toLowerCase()===am2[2].trim().toLowerCase());if(byText>=0){cur.answer=byText;continue;}}
+    const si=splitInline(line);
+    if(si){if(cur&&(cur.answer>=0||cur.options.filter(Boolean).length>=2))push();
+      if(!cur)cur={text:si.qtext,options:[],answer:-1};
+      else if(cur.options.filter(Boolean).length===0)cur.text=si.qtext;
+      si.opts.forEach((o,i)=>{if(o)cur.options[i]=o;});
+      if(si.ans>=0)cur.answer=si.ans;
+      continue;}
+    let tick=false;if(line.includes("✔")||line.includes("✓")){tick=true;line=line.replace(/[✔✓]/g,"").trim();}
+    let om=line.match(optRe);
+    if(om&&cur){if(cur.answer>=0){push();cur={text:"",options:[],answer:-1};}
+      if(addInline(line)){if(tick)cur.answer=cur.options.filter(Boolean).length-1;continue;}
+      cur.options["ABCD".indexOf(om[1].toUpperCase())]=om[2].trim();
+      if(tick)cur.answer="ABCD".indexOf(om[1].toUpperCase());continue;}
+    if(cur&&cur.options.filter(Boolean).length===0&&addInline(line))continue;
+    let qm=line.match(/^(q\.?\s*\d+|question\s*\d+|\d+[\.\)])\s*[:\.\-]?\s*(.*)$/i);
+    if(qm){push();cur={text:(qm[2]||"").trim(),options:[],answer:-1};continue;}
+    if(cur&&(cur.answer>=0||cur.options.filter(Boolean).length>=2)){push();cur={text:line,options:[],answer:-1};continue;}
+    if(!cur)cur={text:line,options:[],answer:-1};
+    else if(cur.options.filter(Boolean).length===0){cur.text=(cur.text+" "+line).trim();}
+  }
+  push();
+  // A first line that is just a heading/title (no options, not a question) is not a question — drop it.
+  if(qs.length>1&&qs[0].options.filter(Boolean).length===0&&qs[0].answer<0&&!/？|\?$/.test(qs[0].text.trim()))qs.shift();
+  qs.forEach(q=>{
+    // remove empty option slots and remap the answer to the new position
+    const map={},opts=[];
+    q.options.forEach((o,i)=>{if(o&&String(o).trim()){map[i]=opts.length;opts.push(String(o).trim());}});
+    q.options=opts;
+    if(q.answer>=0)q.answer=(map[q.answer]!==undefined?map[q.answer]:-1);
+    q.text=(q.text||"").replace(/^[\s\.\)\:\-]+/,"").trim();
+  });
+  return qs.slice(0,200);
+}
+let questions=[],validIdx=[];
+function validate(){
+  const errs=[];validIdx=[];
+  questions.forEach((q,i)=>{
+    if(!q.text){errs.push(`Question ${i+1}: no question text found`);return;}
+    if(q.options.filter(Boolean).length<2){errs.push(`Question ${i+1} (“${q.text.slice(0,22)}…”) needs at least 2 options (A, B…)`);return;}
+    if(q.answer<0||q.answer>=q.options.length){errs.push(`Question ${i+1} (“${q.text.slice(0,22)}…”) no answer found — add “Answer: B”`);return;}
+    validIdx.push(i);
+  });
+  return errs;
+}
+/* ---------- settings ---------- */
+function num(id,d){const v=parseFloat($(id).value);return isNaN(v)?d:v;}
+function settings(){
+  return{
+    size:$("dSize").value,bg1:$("dBg1").value,bg2:$("dBg2").value,acc:$("dAcc").value,correct:$("dCorrect").value,
+    bgStyle:$("dBgStyle").value,textCol:$("dText").value,font:$("dFont").value,textSize:num("dTextSize",100)/100,radius:num("dRadius",20),
+    labels:$("dLabels").value,cardStyle:$("dCardStyle").value,qStyle:$("dQStyle").value,badge:$("dBadge").value,
+    counter:$("eCounter").checked,progress:$("eProgress").checked,anim:$("eAnim").value,
+    confetti:$("eConfetti").checked,dim:$("eDim").checked,banner:$("eBanner").checked,
+    watchSize:num("eWatchSize",100)/100,cdStyle:$("eCdStyle").value,watch:$("eWatch").value,
+    brand:$("bName").value.trim(),corner:$("bCorner").value,logoSize:num("bSize",56),logoOp:num("bOpacity",100)/100,
+    introSec:num("bIntroSec",3),outroSec:num("bOutroSec",3),
+    introTitle:$("bIntroTitle").value,introSub:$("bIntroSub").value,outroTitle:$("bOutroTitle").value,outroSub:$("bOutroSub").value,
+    delay:num("tDelay",0.8),gap:num("tGap",0.5),count:num("tCount",5),reveal:num("tReveal",3),
+  };
+}
+function qDuration(q,s){return s.delay+q.options.length*s.gap+s.count+s.reveal;}
+function totalDuration(){const s=settings();let t=s.introSec+s.outroSec;validIdx.forEach(i=>t+=qDuration(questions[i],s));return t;}
+function fmt(t){t=Math.round(t);return Math.floor(t/60)+":"+String(t%60).padStart(2,"0");}
+function refreshStats(){
+  questions=parseQuestions($("qbox").value);
+  const errs=validate();
+  $("stQ").textContent=validIdx.length;$("stNeed").textContent=validIdx.length;
+  $("stBal").textContent=balance;$("sideBalV").textContent=balance;
+  $("stLen").textContent=fmt(totalDuration());
+  let h="";
+  if(questions.length){const mb=Math.max(2,totalDuration()*0.38).toFixed(0);
+    h+=`<div class="ok">✔ ${validIdx.length} question${validIdx.length!==1?"s":""} ready · est. file ~${mb} MB</div>`;
+    errs.forEach(e=>h+=`<div class="err">⚠ ${e}</div>`);}
+  $("parseMsg").innerHTML=h;
+  if(!playing)$("status").textContent=validIdx.length?`${validIdx.length} question(s) ready — Preview is free.`:"Paste your questions to begin.";
+  drawStill("question");
+}
+/* ---------- canvas ---------- */
+const cv=$("cv"),ctx=cv.getContext("2d");
+let logoImg=null,ownAudioBuf=null;
+const FONTS={Modern:"'Segoe UI',Arial",Classic:"Georgia,'Times New Roman',serif",Friendly:"'Comic Sans MS','Segoe UI',Arial",Typewriter:"'Courier New',monospace",Bold:"'Arial Black','Segoe UI',Arial",Wide:"Verdana,'Segoe UI',Arial"};
+function setCanvasSize(){const s=settings();let w=1280,h=720;if(s.size==="9:16"){w=720;h=1280;}
+  if(cv.width!==w){cv.width=w;cv.height=h;}cv.classList.toggle("vertical",s.size==="9:16");}
+function bubbles(W,H,t,style){
+  if(style==="None")return;const dots=style==="Moving dots";
+  const n=dots?42:16;
+  for(let i=0;i<n;i++){const seed=i*97.3;const sp=dots?22:14;
+    const x=((Math.sin(seed)*0.5+0.5)*W+Math.sin(t*0.3+i)*10+W)%W;
+    const y=H-((t*sp*(0.5+((i*37)%10)/14)+seed*7)%(H+120))+60;
+    const r=dots?3+((i*13)%3):14+((i*29)%44);
+    ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fillStyle=dots?"rgba(255,255,255,.5)":"rgba(255,255,255,.07)";ctx.fill();}
+}
+function wrap(text,x,y,maxW,lh,maxLines){
+  const words=String(text).split(/\s+/);let lines=[],cur="";
+  for(const w of words){const test=cur?cur+" "+w:w;
+    if(ctx.measureText(test).width>maxW&&cur){lines.push(cur);cur=w;}else cur=test;}
+  if(cur)lines.push(cur);lines=lines.slice(0,maxLines||6);
+  lines.forEach((l,i)=>ctx.fillText(l,x,y+i*lh));return lines.length;
+}
+function rr(x,y,w,h,r){r=Math.min(r,h/2,w/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawFrame(state,t){
+  setCanvasSize();const s=settings(),W=cv.width,H=cv.height;
+  const mainCol=s.textCol==="dark"?"#141a30":"#ffffff";
+  let g;
+  if(s.bgStyle==="Gradient vertical"){g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg2);}
+  else if(s.bgStyle==="Radial glow"){g=ctx.createRadialGradient(W/2,H/2,60,W/2,H/2,Math.max(W,H));g.addColorStop(0,s.bg2);g.addColorStop(1,s.bg1);}
+  else if(s.bgStyle==="Solid colour"){g=ctx.createLinearGradient(0,0,0,0);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg1);}
+  else{g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg2);}
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  if(s.bgStyle!=="Solid colour"){const rg=ctx.createRadialGradient(W*0.8,H*0.15,20,W*0.8,H*0.15,W*0.7);rg.addColorStop(0,"rgba(255,255,255,.13)");rg.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);}
+  bubbles(W,H,t,s.anim);
+  ctx.textAlign="center";
+  const brandTxt=s.brand||"DK Quiz";
+  ctx.save();ctx.globalAlpha=s.logoOp;
+  if(logoImg){const lw=s.logoSize*2,lh=lw*logoImg.height/logoImg.width;
+    ctx.drawImage(logoImg,s.corner.includes("right")?W-lw-18:18,s.corner.includes("Bottom")?H-lh-16:16,lw,lh);}
+  else{ctx.font=`700 ${Math.round(s.logoSize*0.4)}px 'Segoe UI',Arial`;const bw=ctx.measureText(brandTxt).width+26,bh=s.logoSize*0.72;
+    const bx=s.corner.includes("right")?W-bw-18:18,by=s.corner.includes("Bottom")?H-bh-16:16;
+    ctx.fillStyle="rgba(0,0,0,.35)";rr(bx,by,bw,bh,10);ctx.fill();ctx.fillStyle="#fff";ctx.textAlign="left";ctx.fillText(brandTxt,bx+13,by+bh*0.66);ctx.textAlign="center";}
+  ctx.restore();
+  const cx=W/2,F=FONTS[s.font]||FONTS.Modern;
+  if(state.kind==="intro"){
+    ctx.beginPath();ctx.arc(cx,H*0.33,54,0,7);ctx.fillStyle="rgba(0,0,0,.3)";ctx.fill();ctx.font="50px Arial";ctx.fillStyle="#fff";ctx.fillText("⏱",cx,H*0.33+17);
+    ctx.font=`800 ${Math.round(76*s.textSize)}px ${F}`;ctx.fillStyle=mainCol;ctx.fillText(s.introTitle,cx,H*0.52);
+    ctx.font=`400 ${Math.round(34*s.textSize)}px ${F}`;ctx.fillStyle=mainCol==="#ffffff"?"rgba(255,255,255,.85)":"rgba(20,26,48,.8)";ctx.fillText(s.introSub,cx,H*0.52+56);return;}
+  if(state.kind==="outro"){
+    ctx.font=`800 ${Math.round(62*s.textSize)}px ${F}`;ctx.fillStyle=mainCol;
+    wrap(s.outroTitle,cx,H*0.44,W*0.86,Math.round(74*s.textSize),3);
+    ctx.font=`400 ${Math.round(32*s.textSize)}px ${F}`;ctx.fillStyle=mainCol==="#ffffff"?"rgba(255,255,255,.85)":"rgba(20,26,48,.8)";ctx.fillText(s.outroSub,cx,H*0.62);return;}
+  const q=questions[state.qi];if(!q)return;
+  const total=validIdx.length,idx=validIdx.indexOf(state.qi)+1;
+  if(s.counter){ctx.textAlign="left";ctx.font="700 21px 'Segoe UI',Arial";const label=`QUESTION ${idx} OF ${total}`;
+    ctx.fillStyle=s.acc;const tw=ctx.measureText(label).width+30;rr(26,22,tw,38,19);ctx.fill();
+    ctx.fillStyle="#221a00";ctx.fillText(label,41,48);ctx.textAlign="center";}
+  if(s.progress){ctx.fillStyle="rgba(255,255,255,.18)";rr(26,72,W-52,7,4);ctx.fill();ctx.fillStyle=s.acc;rr(26,72,(W-52)*idx/total,7,4);ctx.fill();}
+  // timer
+  const showTimer=s.cdStyle!=="Hidden"&&(state.phase==="count"||state.phase==="options"||state.phase==="reveal");
+  if(s.cdStyle==="Bar"&&state.phase==="count"){
+    ctx.fillStyle="rgba(255,255,255,.2)";rr(W*0.2,H-40,W*0.6,12,6);ctx.fill();
+    ctx.fillStyle=s.acc;rr(W*0.2,H-40,W*0.6*(1-state.phaseT/s.count),12,6);ctx.fill();}
+  else if(showTimer){
+    const wr=44*s.watchSize,wx=W-wr-30,wy=104+wr;
+    const remain=state.phase==="count"?Math.ceil(s.count-state.phaseT):null;
+    if(s.watch==="Digital LCD"){
+      ctx.fillStyle="rgba(5,10,5,.85)";rr(wx-58,wy-30,116,60,10);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=s.acc;ctx.stroke();
+      ctx.font=`700 ${Math.round(38*s.watchSize)}px 'Courier New',monospace`;ctx.fillStyle="#4ade80";
+      ctx.fillText(remain!==null?("0:"+String(remain).padStart(2,"0")):state.phase==="reveal"?"✓":"--:--",wx,wy+13);
+    }else{
+      ctx.beginPath();ctx.arc(wx,wy,wr,0,7);ctx.fillStyle=s.watch==="Gold classic"?"rgba(40,30,0,.6)":"rgba(10,8,30,.55)";ctx.fill();
+      ctx.lineWidth=s.watch==="Neon ring"?6:5;ctx.strokeStyle=s.watch==="Gold classic"?"#f5b921":s.watch==="Neon ring"?s.acc:"rgba(255,255,255,.25)";ctx.stroke();
+      if(state.phase==="count"&&s.cdStyle!=="Circle"){ctx.beginPath();ctx.arc(wx,wy,wr,-Math.PI/2,-Math.PI/2+Math.PI*2*(state.phaseT/s.count));ctx.strokeStyle=s.acc;ctx.stroke();}
+      if(s.cdStyle==="Circle"&&state.phase==="count"){ctx.beginPath();ctx.arc(wx,wy,wr,-Math.PI/2,-Math.PI/2+Math.PI*2*(state.phaseT/s.count));ctx.strokeStyle="#fff";ctx.stroke();}
+      ctx.font=`800 ${Math.round(40*s.watchSize)}px 'Segoe UI',Arial`;ctx.fillStyle="#fff";
+      ctx.fillText(remain!==null?String(remain):state.phase==="reveal"?"✓":"…",wx,wy+14*s.watchSize);
+      if(s.watch==="Sport watch"||s.watch==="Gold classic"){ctx.font="600 11px Arial";ctx.fillStyle="rgba(255,255,255,.6)";
+        for(let i=0;i<12;i++){const a=i*Math.PI/6;ctx.fillText("·",wx+Math.cos(a)*(wr-11),wy+Math.sin(a)*(wr-11)+4);}}
+    }}
+  // question
+  const qFont=`700 ${Math.round(41*s.textSize)}px ${F}`;
+  ctx.font=qFont;
+  let qTop=H*0.185;
+  if(s.qStyle==="Panel card"){ctx.fillStyle="rgba(0,0,0,.28)";rr(W*0.05,qTop-52,W*0.9,118,16);ctx.fill();}
+  if(s.qStyle==="Accent bar"){ctx.fillStyle=s.acc;ctx.fillRect(W*0.06,qTop-44,7,86);}
+  ctx.fillStyle=mainCol;
+  const qLines=wrap(q.text,cx,qTop,W*0.86,Math.round(50*s.textSize),4);
+  // options
+  const cols=W<800?1:2,gapX=22,gapY=18,gridW=W*0.9,cardW=cols===1?gridW:(gridW-gapX)/2,cardH=H*0.115;
+  const gridY=qTop+qLines*Math.round(50*s.textSize)+H*0.05;
+  const letters=s.labels==="1234"?"1234":s.labels==="none"?"    ":"ABCD";
+  q.options.forEach((opt,i)=>{
+    const col=cols===1?0:i%cols,row=Math.floor(i/cols);
+    const x=cx-gridW/2+col*(cardW+gapX),y=gridY+row*(cardH+gapY);
+    let appear=1;
+    if(state.phase==="delay")appear=0;
+    else if(state.phase==="options"){const lt=state.phaseT-i*s.gap;appear=Math.max(0,Math.min(1,lt/0.25));}
+    if(appear<=0)return;
+    const isCorrect=state.phase==="reveal"&&i===q.answer;
+    ctx.save();ctx.globalAlpha=appear*(state.phase==="reveal"&&s.dim&&!isCorrect?0.45:1);
+    const yy=y+(1-appear)*16;
+    let cardTxt="#fff";
+    if(isCorrect){ctx.fillStyle=s.correct;rr(x,yy,cardW,cardH,s.radius);ctx.fill();}
+    else if(s.cardStyle==="Solid white"){ctx.fillStyle="#ffffff";rr(x,yy,cardW,cardH,s.radius);ctx.fill();cardTxt="#141a30";}
+    else if(s.cardStyle==="Outline"){ctx.lineWidth=2;ctx.strokeStyle="rgba(255,255,255,.6)";rr(x,yy,cardW,cardH,s.radius);ctx.stroke();}
+    else if(s.cardStyle==="Neon glow"){ctx.fillStyle="rgba(10,10,35,.75)";ctx.shadowColor=s.acc;ctx.shadowBlur=18;rr(x,yy,cardW,cardH,s.radius);ctx.fill();ctx.shadowBlur=0;ctx.lineWidth=2;ctx.strokeStyle=s.acc;ctx.stroke();}
+    else if(s.cardStyle==="Flat 3D"){ctx.fillStyle="rgba(0,0,0,.35)";rr(x,yy+6,cardW,cardH,s.radius);ctx.fill();ctx.fillStyle="rgba(70,60,160,.95)";rr(x,yy,cardW,cardH,s.radius);ctx.fill();}
+    else{ctx.fillStyle="rgba(255,255,255,.13)";rr(x,yy,cardW,cardH,s.radius);ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle="rgba(255,255,255,.35)";ctx.stroke();}
+    if(s.labels!=="none"){
+      const br=cardH*0.31,bx2=x+br+14,by2=yy+cardH/2;
+      ctx.beginPath();
+      if(s.badge==="Circle")ctx.arc(bx2,by2,br,0,7);else rr(bx2-br,by2-br,br*2,br*2,10);
+      ctx.fillStyle=isCorrect?"rgba(0,0,0,.25)":s.acc;ctx.fill();
+      ctx.font=`800 ${Math.round(br*1.05)}px 'Segoe UI',Arial`;ctx.fillStyle=isCorrect?"#fff":"#221a00";
+      ctx.fillText(letters[i],bx2,by2+br*0.38);
+      ctx.textAlign="left";ctx.font=`600 ${Math.round(30*s.textSize)}px ${F}`;ctx.fillStyle=cardTxt;
+      const tx=x+br*2+28;wrap(opt,tx+Math.min(ctx.measureText(opt).width,(cardW-br*2-50))/2,by2+10,cardW-br*2-46,36,2);ctx.textAlign="center";
+    }else{
+      ctx.font=`600 ${Math.round(30*s.textSize)}px ${F}`;ctx.fillStyle=cardTxt;
+      wrap(opt,x+cardW/2,yy+cardH/2+10,cardW-40,36,2);
+    }
+    if(isCorrect){ctx.font="700 25px Arial";ctx.fillStyle="#fff";ctx.fillText("✓",x+cardW-28,yy+cardH/2+8);}
+    ctx.restore();
+  });
+  if(state.phase==="reveal"){
+    if(s.banner){const label=`Correct answer: ${"ABCD"[q.answer]}) ${q.options[q.answer]}`;
+      ctx.font="700 25px 'Segoe UI',Arial";const bw=ctx.measureText("✔ "+label).width+44;
+      ctx.fillStyle="rgba(0,0,0,.45)";rr(cx-bw/2,H-64,bw,44,22);ctx.fill();
+      ctx.fillStyle="#4ade80";ctx.fillText("✔ "+label,cx,H-33);}
+    if(s.confetti&&state.phaseT<2.2)confetti(W,H,state.phaseT);
+  }
+}
+let confettiP=null;
+function confetti(W,H,t){
+  if(!confettiP){confettiP=[];for(let i=0;i<90;i++)confettiP.push({x:Math.random()*W,y:-Math.random()*H*0.5,vx:(Math.random()-0.5)*60,vy:120+Math.random()*160,r:Math.random()*7+3,c:["#f5b921","#22c55e","#6366f1","#f472b6","#38bdf8"][i%5],rot:Math.random()*7});}
+  confettiP.forEach(p=>{const x=p.x+p.vx*t,y=p.y+p.vy*t;if(y>H)return;ctx.save();ctx.translate(x,y);ctx.rotate(p.rot+t*3);ctx.fillStyle=p.c;ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*0.6);ctx.restore();});
+}
+/* ---------- timeline ---------- */
+function buildTimeline(){
+  const s=settings(),tl=[];
+  if(s.introSec>0)tl.push({kind:"intro",dur:s.introSec});
+  validIdx.forEach(qi=>{const q=questions[qi];
+    tl.push({kind:"q",qi,phase:"delay",dur:s.delay});
+    tl.push({kind:"q",qi,phase:"options",dur:q.options.length*s.gap});
+    tl.push({kind:"q",qi,phase:"count",dur:s.count});
+    tl.push({kind:"q",qi,phase:"reveal",dur:s.reveal});});
+  if(s.outroSec>0)tl.push({kind:"outro",dur:s.outroSec});
+  return tl;
+}
+function stateAt(tl,t){let acc=0;for(const seg of tl){if(t<acc+seg.dur)return{...seg,phaseT:t-acc};acc+=seg.dur;}
+  const last=tl[tl.length-1];return{...last,phaseT:last?last.dur:0};}
+/* ---------- audio ---------- */
+let AC=null,masterGain=null,musicGain=null,streamDest=null,musicNodes=[],musicTimer=null;
+function initAudio(forExport){
+  if(AC){if(forExport&&!streamDest){streamDest=AC.createMediaStreamDestination();masterGain.connect(streamDest);}return;}
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  masterGain=AC.createGain();masterGain.connect(AC.destination);
+  if(forExport){streamDest=AC.createMediaStreamDestination();masterGain.connect(streamDest);}
+  musicGain=AC.createGain();musicGain.connect(masterGain);
+}
+function beep(freq,dur,type,vol,when){
+  if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.type=type||"sine";o.frequency.value=freq;
+  const t0=AC.currentTime+(when||0);g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(Math.max(vol,0.0002),t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(masterGain);o.start(t0);o.stop(t0+dur+0.05);
+}
+const sfx={
+  tick(){if($("aTick").checked)beep($("aTickStyle").value==="Soft tap"?300:$("aTickStyle").value==="Beep"?880:950,$("aTickStyle").value==="Beep"?0.09:0.06,"square",0.10*num("aFx",70)/70);},
+  pop(){if($("aPop").checked)beep(520,0.09,"sine",0.25*num("aFx",70)/70);},
+  ding(){if($("aDing").checked){beep(880,0.16,"sine",0.3*num("aFx",70)/70);beep(1318,0.3,"sine",0.3*num("aFx",70)/70,0.12);}}
+};
+const MUSIC={
+  calm:{chords:[[220,261,329],[174,220,261],[196,246,293],[164,196,246]],step:2000,type:"sine"},
+  lofi:{chords:[[196,246,293],[146,196,246],[174,220,261],[164,196,246]],step:2600,type:"triangle"},
+  upbeat:{chords:[[261,329,392],[220,261,329],[175,220,261],[196,247,294]],step:1400,type:"triangle"},
+  game:{chords:[[261,329,392,523],[293,369,440,587],[329,392,493,659],[261,329,392,523]],step:1200,type:"square"},
+  suspense:{chords:[[110,130],[116,138],[110,130],[103,146]],step:2800,type:"sawtooth"}
+};
+function startMusic(){
+  if(!AC)return;stopMusic();
+  const mode=$("aMusic").value;if(mode==="none")return;
+  const target=num("aMus",30)/100*0.5;
+  musicGain.gain.setValueAtTime($("aFade").checked?0.0001:target,AC.currentTime);
+  if($("aFade").checked)musicGain.gain.exponentialRampToValueAtTime(Math.max(target,0.0002),AC.currentTime+1.2);
+  else musicGain.gain.value=target;
+  if(mode==="own"&&ownAudioBuf){const src=AC.createBufferSource();src.buffer=ownAudioBuf;src.loop=true;src.connect(musicGain);src.start(0,num("aOwnStart",0)%ownAudioBuf.duration);musicNodes.push(src);return;}
+  const M=MUSIC[mode]||MUSIC.calm;let step=0;
+  const playChord=()=>{if(!AC)return;const ch=M.chords[step%M.chords.length];step++;
+    ch.forEach(f=>{const o=AC.createOscillator(),g=AC.createGain();o.type=M.type;o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,AC.currentTime);g.gain.exponentialRampToValueAtTime(mode==="suspense"?0.07:0.11,AC.currentTime+0.35);
+      g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+M.step/1000*0.95);o.connect(g);g.connect(musicGain);o.start();o.stop(AC.currentTime+M.step/1000);musicNodes.push(o);});};
+  playChord();musicTimer=setInterval(playChord,M.step);
+}
+function stopMusic(){if(musicTimer){clearInterval(musicTimer);musicTimer=null;}musicNodes.forEach(n=>{try{n.stop()}catch(e){}});musicNodes=[];}
+/* ---------- voice reader ---------- */
+let allVoices=[];
+function loadVoices(){
+  if(!("speechSynthesis" in window)){ $("voiceMsg").innerHTML=`<div class="err">No voices found on this device. Voice reader is unavailable here.</div>`;return;}
+  allVoices=speechSynthesis.getVoices();
+  const type=$("aVoiceType").value,lang=$("aVoiceLang").value,sel=$("aVoiceSel");
+  const cur=sel.value;sel.innerHTML=`<option value="off">Off (no voice)</option>`;
+  allVoices.forEach((v,i)=>{
+    if(type==="female"&&!/female|zira|samantha|aria|jenny|veena|heera/i.test(v.name)&&!/female/i.test(v.name))return;
+    if(type==="male"&&!/male|david|daniel|guy|ravi/i.test(v.name))return;
+    if(lang!=="all"&&!v.lang.toLowerCase().startsWith(lang))return;
+    const o=document.createElement("option");o.value=i;o.textContent=`${v.name} (${v.lang})`;sel.appendChild(o);});
+  if([...sel.options].some(o=>o.value===cur))sel.value=cur;
+  $("voiceMsg").innerHTML=allVoices.length?"":`<div class="err">No voices found on this device. Voice reader is unavailable here.</div>`;
+}
+if("speechSynthesis" in window){speechSynthesis.onvoiceschanged=loadVoices;}
+function speak(text){
+  if(!("speechSynthesis" in window))return;
+  const vi=$("aVoiceSel").value;if(vi==="off")return;
+  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);
+  if(allVoices[vi])u.voice=allVoices[vi];
+  u.rate=num("aRate",100)/100;u.pitch=num("aPitch",100)/100;u.volume=num("aVol",100)/100;
+  speechSynthesis.speak(u);
+}
+/* ---------- playback ---------- */
+let playing=false,playRAF=null,playStart=0,lastSegKey="",lastTickSec=-1,lastPopCount=-1,recording=false;
+function runPlayback(onDone){
+  if(!validIdx.length){toast("Pehle kuch valid questions paste karein.");return;}
+  initAudio(!!onDone);if(AC.state==="suspended")AC.resume();
+  const tl=buildTimeline(),total=tl.reduce((a,s)=>a+s.dur,0);
+  playing=true;lastSegKey="";lastTickSec=-1;lastPopCount=-1;confettiP=null;
+  $("prevBtn").disabled=true;$("createBtn").disabled=true;$("stopBtn").style.display="";
+  startMusic();playStart=performance.now();
+  const frame=()=>{
+    if(!playing)return;
+    const t=(performance.now()-playStart)/1000;
+    if(t>=total){stopPlaybackUI();stopMusic();if("speechSynthesis" in window)speechSynthesis.cancel();drawStill("question");
+      $("status").textContent=onDone?"Creating video… finalizing file.":"Preview finished.";$("playBar").style.width="0%";
+      if(onDone)onDone();return;}
+    const st=stateAt(tl,t);drawFrame(st,t);
+    $("playBar").style.width=(t/total*100)+"%";
+    const key=st.kind+"|"+st.qi+"|"+st.phase;
+    if(key!==lastSegKey){lastSegKey=key;lastTickSec=-1;lastPopCount=-1;
+      if(st.kind==="q"&&st.phase==="delay"){const q=questions[st.qi];const mode=$("aRead").value;
+        let txt=q.text;if(mode!=="q")txt+=". "+q.options.map((o,i)=>"Option "+"ABCD"[i]+": "+o).join(". ");
+        speak(txt);}
+      if(st.kind==="q"&&st.phase==="reveal"){sfx.ding();
+        if($("aRead").value==="qoa"){const q=questions[st.qi];speak("Correct answer: "+q.options[q.answer]);}}}
+    if(st.phase==="options"){const shown=Math.floor(st.phaseT/settings().gap)+1;if(shown!==lastPopCount){lastPopCount=shown;sfx.pop();}}
+    if(st.phase==="count"){const sec=Math.floor(st.phaseT);if(sec!==lastTickSec){lastTickSec=sec;sfx.tick();}}
+    $("status").textContent=(onDone?"🎞 Creating video… ":"Playing · ")+fmt(t)+" / "+fmt(total)+(onDone?" — keep this tab open.":"");
+    playRAF=requestAnimationFrame(frame);
+  };
+  frame();
+}
+function stopPlaybackUI(){playing=false;if(playRAF)cancelAnimationFrame(playRAF);
+  $("prevBtn").disabled=false;if(!recording)$("createBtn").disabled=false;$("stopBtn").style.display="none";$("playBar").style.width="0%";}
+function stopAll(){stopPlaybackUI();stopMusic();if("speechSynthesis" in window)speechSynthesis.cancel();drawStill("question");$("status").textContent="Stopped.";}
+function drawStill(which){
+  if(playing)return;confettiP=null;
+  if(!validIdx.length){setCanvasSize();drawFrame({kind:"intro"},0.5);return;}
+  const qi=validIdx[0];
+  if(which==="intro")drawFrame({kind:"intro"},0.5);
+  else if(which==="outro")drawFrame({kind:"outro"},0.5);
+  else if(which==="answer")drawFrame({kind:"q",qi,phase:"reveal",phaseT:1},1);
+  else drawFrame({kind:"q",qi,phase:"count",phaseT:1.2},1);
+}
+/* ---------- events ---------- */
+$("tabs").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.id==="tab-"+b.dataset.tab));});
+document.querySelectorAll(".jump button").forEach(b=>b.addEventListener("click",()=>{if(!playing)drawStill(b.dataset.jump);}));
+$("qbox").addEventListener("input",refreshStats);
+["dSize","dTheme","dPalette","dBg1","dBg2","dAcc","dCorrect","dBgStyle","dText","dFont","dTextSize","dRadius","dLabels","dCardStyle","dQStyle","dBadge","eCounter","eProgress","eCdStyle","eWatch","eWatchSize","eAnim","eConfetti","eDim","eBanner","bName","bCorner","bSize","bOpacity","bIntroSec","bOutroSec","bIntroTitle","bIntroSub","bOutroTitle","bOutroSub","tDelay","tGap","tCount","tReveal"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",()=>{updLabels();refreshStats();});});
+function updLabels(){$("dTextSizeV").textContent=$("dTextSize").value+"%";$("dRadiusV").textContent=$("dRadius").value+"px";$("eWatchV").textContent=$("eWatchSize").value+"%";$("bSizeV").textContent=$("bSize").value+"px";$("bOpV").textContent=$("bOpacity").value+"%";$("aFxV").textContent=$("aFx").value+"%";$("aMusV").textContent=$("aMus").value+"%";$("aRateV").textContent=$("aRate").value+"%";$("aPitchV").textContent=$("aPitch").value+"%";$("aVolV").textContent=$("aVol").value+"%";}
+["aFx","aMus","aRate","aPitch","aVol"].forEach(id=>$(id).addEventListener("input",updLabels));
+const THEMES={royal:["#150a3d","#4c1d95","#f5b921"],neon:["#050510","#1e1b4b","#22d3ee"],tv:["#0a1030","#7c2d12","#facc15"],minimal:["#e8ecf5","#c7d0e6","#4f46e5"],kids:["#7c3aed","#ec4899","#fde047"],darkpro:["#0a0a0c","#26262b","#a1a1aa"],classroom:["#14532d","#166534","#fbbf24"],ocean:["#02182e","#0369a1","#38bdf8"],sunset:["#2b0a1e","#9d2449","#fb923c"],forest:["#052e16","#15803d","#a3e635"],retro:["#1a0533","#4c0519","#f472b6"],luxury:["#171204","#57430a","#f5b921"]};
+const PALETTES={Royal:"royal",Ocean:"ocean",Sunset:"sunset",Forest:"forest",Midnight:"darkpro",Rose:"sunset",Slate:"darkpro",Custom:null};
+$("dTheme").addEventListener("change",()=>{const t=THEMES[$("dTheme").value];if(t){$("dBg1").value=t[0];$("dBg2").value=t[1];$("dAcc").value=t[2];refreshStats();}});
+$("dPalette").addEventListener("change",()=>{const k=PALETTES[$("dPalette").value];const t=k?THEMES[k]:null;
+  if($("dPalette").value==="Clean (light)"){$("dBg1").value="#e8ecf5";$("dBg2").value="#c7d0e6";$("dAcc").value="#4f46e5";$("dText").value="dark";}
+  else if($("dPalette").value==="Mint (light)"){$("dBg1").value="#d9f5e5";$("dBg2").value="#a7e8c8";$("dAcc").value="#059669";$("dText").value="dark";}
+  else if(t){$("dBg1").value=t[0];$("dBg2").value=t[1];$("dAcc").value=t[2];$("dText").value="auto";}
+  else if($("dPalette").value==="Rose"){$("dBg1").value="#2b0a18";$("dBg2").value="#881337";$("dAcc").value="#fb7185";}
+  refreshStats();});
+$("clearBtn").addEventListener("click",()=>{$("qbox").value="";refreshStats();});
+$("fileIn").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{$("qbox").value=t;refreshStats();toast("File load ho gayi.");});});
+$("bLogo").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;$("bLogoName").textContent=f.name;const img=new Image();img.onload=()=>{logoImg=img;drawStill("question");};img.src=URL.createObjectURL(f);});
+$("aOwn").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;$("aOwnName").textContent=f.name;initAudio(false);ownAudioBuf=await AC.decodeAudioData(await f.arrayBuffer());$("aMusic").value="own";toast("Music file ready.");});
+$("listenBtn").addEventListener("click",()=>{initAudio(false);if(AC.state==="suspended")AC.resume();
+  if($("listenBtn").dataset.on){stopMusic();$("listenBtn").dataset.on="";$("listenBtn").textContent="▶ Listen to selected music";return;}
+  startMusic();$("listenBtn").dataset.on="1";$("listenBtn").textContent="■ Stop music";
+  setTimeout(()=>{if($("listenBtn").dataset.on){stopMusic();$("listenBtn").dataset.on="";$("listenBtn").textContent="▶ Listen to selected music";}},8000);});
+$("aVoiceType").addEventListener("change",loadVoices);$("aVoiceLang").addEventListener("change",loadVoices);
+$("testVoiceBtn").addEventListener("click",()=>{if($("aVoiceSel").value==="off"){toast("Pehle Voice dropdown se koi voice select karein.");return;}speak("Welcome to DK Quiz. This is the voice preview.");});
+$("prevBtn").addEventListener("click",()=>runPlayback(null));
+$("stopBtn").addEventListener("click",stopAll);
+/* ---------- create video ---------- */
+let outBlob=null,outExt="mp4";
+$("createBtn").addEventListener("click",()=>{
+  if(playing)return;
+  if(!validIdx.length){toast("Pehle valid questions paste karein.");return;}
+  if(balance<validIdx.length){toast(`Balance kam hai — ${validIdx.length} credits chahiyein, balance ${balance} hai. Credits & Billing se buy karein.`);document.querySelector('[data-tab="credits"]').click();return;}
+  initAudio(true);recording=true;
+  const fps=parseInt($("xFps").value)||30;
+  const cStream=cv.captureStream(fps);
+  const tracks=[...cStream.getVideoTracks()];
+  if(streamDest)tracks.push(...streamDest.stream.getAudioTracks());
+  const combined=new MediaStream(tracks);
+  let mime="video/mp4";
+  if(!MediaRecorder.isTypeSupported(mime)){if($("xMode").value.includes("Fast MP4 only")){toast("Is browser me MP4 support nahi — Compatibility mode use karein.");recording=false;return;}
+    mime=MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")?"video/webm;codecs=vp9,opus":"video/webm";}
+  outExt=mime.includes("mp4")?"mp4":"webm";
+  const q=$("xQuality").value;const bps=q==="High"?6000000:q==="Small file"?1500000:3000000;
+  const rec=new MediaRecorder(combined,{mimeType:mime,videoBitsPerSecond:bps,audioBitsPerSecond:128000});
+  const chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+  rec.onstop=()=>{recording=false;$("createBtn").disabled=false;
+    outBlob=new Blob(chunks,{type:mime.split(";")[0]});
+    const url=URL.createObjectURL(outBlob);const v=$("outVid");v.src=url;v.style.display="block";
+    $("dlBtn").disabled=false;setBalance(balance-validIdx.length);
+    $("status").textContent=`Video ready · ${outExt.toUpperCase()} · ${(outBlob.size/1048576).toFixed(1)} MB. Click Download. ${validIdx.length} credits used.`;toast("Video ready! Download kar lein.");};
+  $("status").textContent="🎞 Creating video… keep this tab open.";
+  rec.start(250);
+  runPlayback(()=>{setTimeout(()=>{try{rec.stop()}catch(e){}},350);});
+});
+$("dlBtn").addEventListener("click",()=>{if(!outBlob)return;const a=document.createElement("a");a.href=URL.createObjectURL(outBlob);a.download=($("xName").value.trim()||"quiz-video")+"."+outExt;a.click();});
+/* ---------- credits shop ---------- */
+document.querySelectorAll(".price").forEach(p=>p.addEventListener("click",()=>{
+  const msg=encodeURIComponent(`Hello, I have paid for quiz video credits. Sending the screenshot. Pack: ${p.dataset.pack}`);
+  window.open(`https://wa.me/${WA}?text=${msg}`,"_blank");}));
+function codeChk(amt,body){const secret="DKQUIZ-SECRET-786";let h=0;const s=secret+"|"+amt+"|"+body;
+  for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return String(h%1000).padStart(3,"0");}
+function makeCode(amount){const chars="ABCDEFGHJKMNPQRSTUVWXYZ23456789";let body="";
+  for(let i=0;i<6;i++)body+=chars[Math.floor(Math.random()*chars.length)];
+  return `DKQ-${amount}-${body}-${codeChk(amount,body)}`;}
+$("vBtn").addEventListener("click",()=>{
+  const raw=$("vCode").value.trim().toUpperCase();const m=raw.match(/^DKQ-(\d{1,6})-([A-Z0-9]{6})-(\d{3})$/);
+  if(!m){$("vMsg").innerHTML=`<div class="err">⚠ Code format ghalat hai — DKQ-1000-XXXXXX-000 jaisa code likhein.</div>`;return;}
+  const amt=parseInt(m[1]);
+  if(codeChk(amt,m[2])!==m[3]){$("vMsg").innerHTML=`<div class="err">⚠ Ye code valid nahi hai. WhatsApp se official code lein.</div>`;return;}
+  if(usedCodes().includes(raw)){$("vMsg").innerHTML=`<div class="err">⚠ Ye code is device par pehle istemal ho chuka hai.</div>`;return;}
+  const u=usedCodes();u.push(raw);localStorage.setItem("dkq_used",JSON.stringify(u));
+  setBalance(balance+amt);
+  $("vMsg").innerHTML=`<div class="ok">✔ ${amt} credits add ho gaye! New balance: ${balance}</div>`;toast(`${amt} credits add ho gaye.`);});
+$("admBtn").addEventListener("click",()=>{
+  if($("admPass").value!==ADMIN_PASS){$("admOut").innerHTML=`<div class="err">⚠ Admin password ghalat hai.</div>`;return;}
+  const amt=Math.max(1,parseInt($("admAmt").value)||100),n=Math.min(50,Math.max(1,parseInt($("admNum").value)||1));
+  let out="";for(let i=0;i<n;i++)out+=makeCode(amt)+"\n";
+  $("admOut").innerHTML=`<code>${out}</code><p class="note">Ye codes kisi bhi device par redeem ho sakte hain. Ek code ek device par ek hi dafa chalega.</p>`;});
+/* ---------- init ---------- */
+(function(){const sup=$("xSupport");
+  if(window.MediaRecorder&&HTMLCanvasElement.prototype.captureStream){
+    sup.textContent=MediaRecorder.isTypeSupported("video/mp4")?"✔ Fast MP4 export is available in this browser.":"✔ Export is available in this browser (WebM fallback — MP4 not supported here).";}
+  else{sup.textContent="⚠ Video export is not supported in this browser — use recent Chrome or Edge.";sup.className="err";}
+  updLabels();loadVoices();refreshStats();drawStill("intro");
+})();
+</script>
+</body>
+</html>
