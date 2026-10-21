@@ -1011,6 +1011,7 @@ async function createViaFast(fps,bps){
   }
   // encode video
   const vChunks=[];let vCfgOut=null,vErr=null;
+  const preRecord=vPick.description?new Uint8Array(vPick.description):null;
   const vEnc=new VideoEncoder({output:(chunk,meta)=>{const b=new Uint8Array(chunk.byteLength);chunk.copyTo(b);
     if(meta&&meta.decoderConfig&&meta.decoderConfig.decoderConfigRecord)vCfgOut={record:meta.decoderConfig.decoderConfigRecord,width:vPick.width,height:vPick.height,framerate:fps};
     vChunks.push({data:b,key:chunk.type==="key"});},error:e=>{vErr=e;}});
@@ -1026,7 +1027,22 @@ async function createViaFast(fps,bps){
       await new Promise(r=>setTimeout(r,0));}
   }
   await vEnc.flush();vEnc.close();
-  if(!vCfgOut)throw new Error("norecord");
+  if(!vCfgOut){
+    let rec=preRecord;
+    if(!rec&&vChunks.length){ // build the AVC record from the first chunk's SPS/PPS (AVCC length-prefixed NALs)
+      try{const d=vChunks[0].data;let sps=null,pps=null,off=0;
+        while(off+5<=d.length){const len=((d[off]<<24)|(d[off+1]<<16)|(d[off+2]<<8)|d[off+3])>>>0;if(len<=0||off+4+len>d.length)break;
+          const nal=d.subarray(off+4,off+4+len),typ=nal[0]&31;
+          if(typ===7)sps=nal;else if(typ===8)pps=nal;else if(typ===5)break;
+          off+=4+len;}
+        if(sps&&pps&&sps.length>=4){const r=new Uint8Array(11+sps.length+pps.length);const dv=new DataView(r.buffer);
+          r[0]=1;r[1]=sps[1];r[2]=sps[2];r[3]=sps[3];r[4]=0xff;r[5]=0xe1;dv.setUint16(6,sps.length);r.set(sps,8);
+          r[8+sps.length]=1;dv.setUint16(9+sps.length,pps.length);r.set(pps,11+sps.length);rec=r;}
+      }catch(e){}
+    }
+    if(!rec)throw new Error("norecord");
+    vCfgOut={record:rec,width:vPick.width,height:vPick.height,framerate:fps};
+  }
   $("playBar").style.width="0%";
   const blob=muxMP4(vChunks,vCfgOut,aChunks,aCfgOut,total);
   finishVideo(blob,"mp4",aChunks?"Fast export se bani hai — timing bilkul exact hai.":"(Note: is browser me sound encode nahi ho saka, video khamosh hai.)");
