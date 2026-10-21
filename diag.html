@@ -4,13 +4,21 @@
 </head><body>
 <h3>DK Quiz — Fast Export Diagnosis</h3>
 <div id="out">Running…</div>
-<iframe id="app" src="index.html" style="width:10px;height:10px;opacity:0.01"></iframe>
+<iframe id="app" style="width:10px;height:10px;opacity:0.01"></iframe>
 <script>
 const out=document.getElementById("out");
 function line(txt,ok){const d=document.createElement("div");d.textContent=txt;d.className=ok===true?"ok":ok===false?"bad":"";out.appendChild(d);}
+document.getElementById("app").src="index.html?cb="+Date.now();
 document.getElementById("app").addEventListener("load",async()=>{
   out.innerHTML="";
   const w=document.getElementById("app").contentWindow;
+  line("app build has opus ladder: "+(w.createViaFast&&w.createViaFast.toString().includes("opus")), w.createViaFast&&w.createViaFast.toString().includes("opus"));
+  try{
+    const so=await w.AudioEncoder.isConfigSupported({codec:"opus",sampleRate:48000,numberOfChannels:2,bitrate:128000,opus:{frameDuration:20000}});
+    line("Opus encode supported: "+so.supported, !!so.supported);
+    const so2=await w.AudioEncoder.isConfigSupported({codec:"opus",sampleRate:48000,numberOfChannels:2,bitrate:128000});
+    line("Opus (plain config) supported: "+so2.supported, !!so2.supported);
+  }catch(e){line("Opus check threw: "+e.message,false);}
   line("UA: "+navigator.userAgent);
   line("VideoEncoder in window: "+("VideoEncoder" in w), "VideoEncoder" in w);
   line("AudioEncoder in window: "+("AudioEncoder" in w), "AudioEncoder" in w);
