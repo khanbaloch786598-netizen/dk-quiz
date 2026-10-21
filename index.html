@@ -967,9 +967,9 @@ function muxMP4(vChunks,vCfg,aChunks,aCfg,totalSec){
 async function pickVideoConfig(W,H,fps,bps){
   if(!("VideoEncoder" in window))return null;
   const codecs=["avc1.640028","avc1.64001F","avc1.4D401F","avc1.42E01F","avc1.42001E"];
-  for(const codec of codecs)for(const hw of ["prefer-hardware","prefer-software",undefined]){
-    const cfg={codec,width:W,height:H,bitrate:bps,framerate:fps,latencyMode:"quality"};if(hw)cfg.hardwareAcceleration=hw;
-    try{const s=await VideoEncoder.isConfigSupported(cfg);if(s.supported)return s.config||cfg;}catch(e){}
+  for(const codec of codecs)for(const hw of ["prefer-hardware","prefer-software",undefined])for(const fmt of ["annexb","avc"]){
+    const cfg={codec,width:W,height:H,bitrate:bps,framerate:fps,latencyMode:"quality",avc:{format:fmt}};if(hw)cfg.hardwareAcceleration=hw;
+    try{const s=await VideoEncoder.isConfigSupported(cfg);if(s.supported)return cfg;}catch(e){}
   }
   return null;
 }
