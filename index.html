@@ -568,16 +568,23 @@ function wrap(text,x,y,maxW,lh,maxLines){
   lines.forEach((l,i)=>ctx.fillText(l,x,y+i*lh));return lines.length;
 }
 function rr(x,y,w,h,r){r=Math.min(r,h/2,w/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+const gradCache={};
 function drawFrame(state,t){
   setCanvasSize();const s=settings(),W=cv.width,H=cv.height;
   const mainCol=s.textCol==="dark"?"#141a30":"#ffffff";
-  let g;
-  if(s.bgStyle==="Gradient vertical"){g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg2);}
-  else if(s.bgStyle==="Radial glow"){g=ctx.createRadialGradient(W/2,H/2,60,W/2,H/2,Math.max(W,H));g.addColorStop(0,s.bg2);g.addColorStop(1,s.bg1);}
-  else if(s.bgStyle==="Solid colour"){g=ctx.createLinearGradient(0,0,0,0);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg1);}
-  else{g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg2);}
+  let g;const gk=s.bgStyle+"|"+s.bg1+"|"+s.bg2+"|"+W+"x"+H;
+  if(gradCache[gk])g=gradCache[gk];
+  else{
+    if(s.bgStyle==="Gradient vertical"){g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg2);}
+    else if(s.bgStyle==="Radial glow"){g=ctx.createRadialGradient(W/2,H/2,60,W/2,H/2,Math.max(W,H));g.addColorStop(0,s.bg2);g.addColorStop(1,s.bg1);}
+    else if(s.bgStyle==="Solid colour"){g=ctx.createLinearGradient(0,0,0,0);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg1);}
+    else{g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg2);}
+    gradCache[gk]=g;
+  }
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  if(s.bgStyle!=="Solid colour"){const rg=ctx.createRadialGradient(W*0.8,H*0.15,20,W*0.8,H*0.15,W*0.7);rg.addColorStop(0,"rgba(255,255,255,.13)");rg.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);}
+  if(s.bgStyle!=="Solid colour"){const rk="glow|"+W+"x"+H;let rg=gradCache[rk];
+    if(!rg){rg=ctx.createRadialGradient(W*0.8,H*0.15,20,W*0.8,H*0.15,W*0.7);rg.addColorStop(0,"rgba(255,255,255,.13)");rg.addColorStop(1,"rgba(255,255,255,0)");gradCache[rk]=rg;}
+    ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);}
   bubbles(W,H,t,s.anim);
   ctx.textAlign="center";
   const brandTxt=s.brand||"DK Quiz";
@@ -975,7 +982,7 @@ function muxMP4(vChunks,vCfg,aChunks,aCfg,totalSec){
 async function pickVideoConfig(W,H,fps,bps){
   if(!("VideoEncoder" in window))return null;
   const codecs=["avc1.640028","avc1.64001F","avc1.4D401F","avc1.42E01F","avc1.42001E"];
-  for(const codec of codecs)for(const hw of ["prefer-hardware","prefer-software",undefined])for(const fmt of ["annexb","avc"]){
+  for(const codec of codecs)for(const hw of [undefined,"prefer-hardware","prefer-software"])for(const fmt of ["annexb","avc"]){
     const cfg={codec,width:W,height:H,bitrate:bps,framerate:fps,latencyMode:"quality",avc:{format:fmt}};if(hw)cfg.hardwareAcceleration=hw;
     try{const s=await VideoEncoder.isConfigSupported(cfg);if(s.supported)return cfg;}catch(e){}
   }
@@ -1047,6 +1054,8 @@ async function createViaFast(fps,bps){
     vChunks.push({data:b,key:chunk.type==="key"});},error:e=>{vErr=e;}});
   vEnc.configure(vPick);
   confettiP=null;
+  // fast cooperative yield (MessageChannel — not clamped like setTimeout, the same trick smooth sites use)
+  const yld=()=>new Promise(r=>{const c=new MessageChannel();c.port1.onmessage=()=>r();c.port2.postMessage(0);});
   let lastYield=performance.now();
   for(let f=0;f<totalFrames;f++){
     if(vErr){relWL();throw vErr;}
@@ -1054,11 +1063,12 @@ async function createViaFast(fps,bps){
     const t=f/fps,st=stateAt(tl,t);drawFrame(st,t);
     const vf=new VideoFrame(cv,{timestamp:Math.round(f*1e6/fps),duration:Math.round(1e6/fps)});
     vEnc.encode(vf,{keyFrame:f%(fps*2)===0});vf.close();
-    if(vEnc.encodeQueueSize>6)await new Promise(r=>setTimeout(r,4));
+    while(vEnc.encodeQueueSize>6)await yld();
+    if(f%10===0)await yld();
     if(f%15===0){$("status").textContent=`🎞 Fast export… ${Math.round(f/totalFrames*100)}% — page khula rakhein, lekin video atakay ga nahi.`;$("playBar").style.width=(f/totalFrames*100)+"%";}
-    // cooperative pacing: hand the phone back a slice of time at least every ~12ms,
+    // hand the phone back a slice of time at least every ~12ms of work,
     // so the screen, back button and browser stay alive even on weak phones
-    if(performance.now()-lastYield>12){await new Promise(r=>setTimeout(r,0));lastYield=performance.now();}
+    if(performance.now()-lastYield>12){await yld();lastYield=performance.now();}
   }
   await vEnc.flush();vEnc.close();
   if(!vCfgOut){
