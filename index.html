@@ -401,6 +401,7 @@ Answer: B
       <button class="btn" id="prevBtn">▶ Preview (free)</button>
       <button class="btn stop" id="stopBtn" style="display:none">■ Stop</button>
       <button class="btn primary" id="createBtn">🎞 Create video</button>
+      <button class="btn stop" id="cancelBtn" style="display:none">⏹ Video rok dein</button>
       <button class="btn" id="dlBtn" disabled>⬇ Download</button>
     </div>
     <p class="note" id="status">Paste your questions to begin.</p>
@@ -763,7 +764,7 @@ function speak(text){
   speechSynthesis.speak(u);
 }
 /* ---------- playback ---------- */
-let playing=false,playRAF=null,playStart=0,lastSegKey="",lastTickSec=-1,lastPopCount=-1,recording=false;
+let playing=false,playRAF=null,playStart=0,lastSegKey="",lastTickSec=-1,lastPopCount=-1,recording=false,createCancel=false;
 let playShiftSec=0,lastFrameAt=0,playTimer=null,hiddenAt=0,frameBusy=false;
 document.addEventListener("visibilitychange",()=>{
   if(!playing)return;
@@ -848,7 +849,7 @@ $("stopBtn").addEventListener("click",stopAll);
 /* ---------- create video ---------- */
 let outBlob=null,outExt="mp4";
 function finishVideo(blob,ext,note){
-  outBlob=blob;outExt=ext;recording=false;$("createBtn").disabled=false;
+  outBlob=blob;outExt=ext;recording=false;$("createBtn").disabled=false;$("cancelBtn").style.display="none";
   const url=URL.createObjectURL(outBlob);const v=$("outVid");v.src=url;v.style.display="block";
   $("dlBtn").disabled=false;setBalance(balance-validIdx.length);
   $("status").textContent=`Video ready · ${ext.toUpperCase()} · ${(outBlob.size/1048576).toFixed(1)} MB. Click Download. ${validIdx.length} credits used.${note?" "+note:""}`;
@@ -994,6 +995,7 @@ async function createViaFast(fps,bps){
   if(!aCfg&&$("xMode").value.startsWith("Auto"))throw new Error("noaudio");
   let wl=null;try{if(navigator.wakeLock)wl=await navigator.wakeLock.request("screen");}catch(e){}
   const relWL=()=>{if(wl){try{wl.release();}catch(e){}wl=null;}};
+  createCancel=false;$("cancelBtn").style.display="";
   // encode audio — soundtrack rendered in ~30s windows so phones never run out of memory
   let aChunks=null,aCfgOut=null;
   if(aCfg){
@@ -1005,6 +1007,7 @@ async function createViaFast(fps,bps){
     const wins=[];{let s=0,d=0;for(const seg of tl){if(d>0&&d+seg.dur>30){wins.push([s,s+d]);s+=d;d=0;}d+=seg.dur;}wins.push([s,s+d]);}
     const sr=48000,step=1024;let fed=0;
     for(let wi=0;wi<wins.length;wi++){
+      if(createCancel){try{aEnc.close();}catch(e){} relWL();throw new Error("cancelled");}
       $("status").textContent=`🎞 Fast export… soundtrack bana raha hai (${Math.round(wi/wins.length*100)}%).`;
       const buf=await renderOfflineAudio(tl,total,wins[wi][0],wins[wi][1]);
       const ch0=buf.getChannelData(0),ch1=buf.numberOfChannels>1?buf.getChannelData(1):ch0;
@@ -1044,14 +1047,18 @@ async function createViaFast(fps,bps){
     vChunks.push({data:b,key:chunk.type==="key"});},error:e=>{vErr=e;}});
   vEnc.configure(vPick);
   confettiP=null;
+  let lastYield=performance.now();
   for(let f=0;f<totalFrames;f++){
     if(vErr){relWL();throw vErr;}
+    if(createCancel){try{vEnc.close();}catch(e){} relWL();throw new Error("cancelled");}
     const t=f/fps,st=stateAt(tl,t);drawFrame(st,t);
     const vf=new VideoFrame(cv,{timestamp:Math.round(f*1e6/fps),duration:Math.round(1e6/fps)});
     vEnc.encode(vf,{keyFrame:f%(fps*2)===0});vf.close();
-    if(vEnc.encodeQueueSize>10)await new Promise(r=>setTimeout(r,2));
-    if(f%15===0){$("status").textContent=`🎞 Fast export… ${Math.round(f/totalFrames*100)}% — page khula rakhein, lekin video atakay ga nahi.`;$("playBar").style.width=(f/totalFrames*100)+"%";
-      await new Promise(r=>setTimeout(r,0));}
+    if(vEnc.encodeQueueSize>6)await new Promise(r=>setTimeout(r,4));
+    if(f%15===0){$("status").textContent=`🎞 Fast export… ${Math.round(f/totalFrames*100)}% — page khula rakhein, lekin video atakay ga nahi.`;$("playBar").style.width=(f/totalFrames*100)+"%";}
+    // cooperative pacing: hand the phone back a slice of time at least every ~12ms,
+    // so the screen, back button and browser stay alive even on weak phones
+    if(performance.now()-lastYield>12){await new Promise(r=>setTimeout(r,0));lastYield=performance.now();}
   }
   await vEnc.flush();vEnc.close();
   if(!vCfgOut){
@@ -1100,7 +1107,8 @@ async function createViaRecorder(fps,bps){
   rec.start(250);
   runPlayback(()=>{setTimeout(()=>{try{rec.stop()}catch(e){}},350);});
 }
-function resetCreate(msg){recording=false;$("createBtn").disabled=false;if(msg){$("status").textContent=msg;toast(msg);}}
+function resetCreate(msg){recording=false;$("createBtn").disabled=false;$("cancelBtn").style.display="none";if(msg){$("status").textContent=msg;toast(msg);}}
+$("cancelBtn").addEventListener("click",()=>{createCancel=true;$("status").textContent="Video roki ja rahi hai…";});
 $("createBtn").addEventListener("click",async()=>{
   if(playing||recording)return;
   if(!validIdx.length){toast("Pehle valid questions paste karein.");return;}
@@ -1117,6 +1125,7 @@ $("createBtn").addEventListener("click",async()=>{
     return;}
   try{await createViaFast(fps,bps);}
   catch(e){
+    if(e&&e.message==="cancelled"){resetCreate("Video rok di gayi — koi credit nahi kata. Dobara Create daba sakte hain.");return;}
     if(mode.startsWith("Fast MP4 only")){resetCreate("Fast export is browser me nahi chala. Export mode 'Auto' chunein, ya page Chrome me kholein.");return;}
     if(!canRec){resetCreate("Fast export is browser me nahi chala aur recording bhi available nahi — ye page Chrome me kholein.");return;}
     const est=Math.round(buildTimeline().reduce((a,s)=>a+s.dur,0));
