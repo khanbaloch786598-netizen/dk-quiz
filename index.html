@@ -514,7 +514,9 @@ function validate(){
 }
 /* ---------- settings ---------- */
 function num(id,d){const v=parseFloat($(id).value);return isNaN(v)?d:v;}
+let frozenSettings=null;
 function settings(){
+  if(frozenSettings)return frozenSettings;
   return{
     size:$("dSize").value,bg1:$("dBg1").value,bg2:$("dBg2").value,acc:$("dAcc").value,correct:$("dCorrect").value,
     bgStyle:$("dBgStyle").value,textCol:$("dText").value,font:$("dFont").value,textSize:num("dTextSize",100)/100,radius:num("dRadius",20),
@@ -856,6 +858,7 @@ $("stopBtn").addEventListener("click",stopAll);
 /* ---------- create video ---------- */
 let outBlob=null,outExt="mp4";
 function finishVideo(blob,ext,note){
+  frozenSettings=null;
   outBlob=blob;outExt=ext;recording=false;$("createBtn").disabled=false;$("cancelBtn").style.display="none";
   const url=URL.createObjectURL(outBlob);const v=$("outVid");v.src=url;v.style.display="block";
   $("dlBtn").disabled=false;setBalance(balance-validIdx.length);
@@ -991,6 +994,7 @@ async function pickVideoConfig(W,H,fps,bps){
 async function createViaFast(fps,bps){
   setCanvasSize();
   const tl=buildTimeline(),total=tl.reduce((a,s)=>a+s.dur,0),totalFrames=Math.max(1,Math.round(total*fps));
+  frozenSettings=settings(); // read the form ONCE for the whole export — not on every frame
   const vPick=await pickVideoConfig(cv.width,cv.height,fps,bps);
   if(!vPick)throw new Error("nocodec");
   let aCfg=null;
@@ -1117,7 +1121,7 @@ async function createViaRecorder(fps,bps){
   rec.start(250);
   runPlayback(()=>{setTimeout(()=>{try{rec.stop()}catch(e){}},350);});
 }
-function resetCreate(msg){recording=false;$("createBtn").disabled=false;$("cancelBtn").style.display="none";if(msg){$("status").textContent=msg;toast(msg);}}
+function resetCreate(msg){frozenSettings=null;recording=false;$("createBtn").disabled=false;$("cancelBtn").style.display="none";if(msg){$("status").textContent=msg;toast(msg);}}
 $("cancelBtn").addEventListener("click",()=>{createCancel=true;$("status").textContent="Video roki ja rahi hai…";});
 $("createBtn").addEventListener("click",async()=>{
   if(playing||recording)return;
