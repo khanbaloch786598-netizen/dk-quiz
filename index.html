@@ -580,6 +580,26 @@ function wrap(text,x,y,maxW,lh,maxLines){
   if(cur)lines.push(cur);lines=lines.slice(0,maxLines||6);
   lines.forEach((l,i)=>ctx.fillText(l,x,y+i*lh));return lines.length;
 }
+/* Fit an option's text inside its pill: shrink the font until it fits in at most 2 lines
+   within the text width and the pill height (long options used to overflow the pill and
+   overlap the next column). Cached per text/size so frame rendering stays fast. */
+const optFitCache=new Map();
+function fitOpt(opt,tw,cardH,baseFont,F){
+  const key=F+"|"+baseFont+"|"+tw+"|"+cardH+"|"+opt;
+  let r=optFitCache.get(key);
+  if(r)return r;
+  let oFont=baseFont,ls=1,mw=0;
+  const count=()=>{ctx.font=`600 ${oFont}px ${F}`;const ws=String(opt).split(/\s+/);let cur="";ls=1;mw=0;
+    for(const w of ws){const t=cur?cur+" "+w:w;
+      if(ctx.measureText(t).width>tw&&cur){mw=Math.max(mw,ctx.measureText(cur).width);ls++;cur=w;}else cur=t;}
+    mw=Math.max(mw,ctx.measureText(cur).width);};
+  count();
+  while(oFont>14&&(ls>2||mw>tw||ls*oFont*1.2>cardH-16)){oFont-=2;count();}
+  if(optFitCache.size>5000)optFitCache.clear();
+  r={font:oFont,lines:ls,lh:oFont*1.2};
+  optFitCache.set(key,r);
+  return r;
+}
 function rr(x,y,w,h,r){r=Math.min(r,h/2,w/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 const gradCache={};
 function drawFrame(state,t){
@@ -689,8 +709,11 @@ function drawFrame(state,t){
       ctx.fillStyle=(isCorrect&&!aurora)?"rgba(0,0,0,.25)":s.acc;ctx.fill();
       ctx.font=`800 ${Math.round(br*1.05)}px 'Segoe UI',Arial`;ctx.fillStyle=(isCorrect&&!aurora)?"#fff":"#221a00";
       ctx.fillText(letters[i],bx2,by2+br*0.38);
-      ctx.textAlign="left";ctx.font=`600 ${Math.round(30*s.textSize)}px ${F}`;ctx.fillStyle=cardTxt;
-      const tx=x+br*2+28;wrap(opt,tx+Math.min(ctx.measureText(opt).width,(cardW-br*2-50))/2,by2+10,cardW-br*2-46,36,2);ctx.textAlign="center";
+      ctx.fillStyle=cardTxt;
+      const tx=x+br*2+28,tw=cardW-br*2-46;
+      const fit=fitOpt(opt,tw,cardH,Math.round(30*s.textSize),F);
+      ctx.textAlign="center";ctx.font=`600 ${fit.font}px ${F}`;
+      wrap(opt,tx+tw/2,by2-(fit.lines-1)*fit.lh/2+fit.font*0.35,tw,fit.lh,2);ctx.textAlign="center";
     }else{
       ctx.font=`600 ${Math.round(30*s.textSize)}px ${F}`;ctx.fillStyle=cardTxt;
       wrap(opt,x+cardW/2,yy+cardH/2+10,cardW-40,36,2);
