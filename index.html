@@ -303,7 +303,7 @@ Answer: C</textarea>
     </div>
     <div class="card">
       <h3>🎙 Narration in video (AI voice)</h3>
-      <p class="note">The downloaded video will also speak the questions aloud — intro, every question with its options, and the outro — just like popular quiz videos. The voice is generated inside your browser (free); first use downloads the voice model once (~30 MB) and then it stays cached in this browser.</p>
+      <p class="note">The downloaded video will also speak the questions aloud — intro, every question with its options, and the outro — just like popular quiz videos. The voice is generated inside your browser (free); ticking the box loads the voice engine right away (first use downloads the model once, ~30 MB, then it stays cached in this browser). Each voice starts exactly when its question appears and always finishes before the next question.</p>
       <label class="check"><input type="checkbox" id="aNarr"> Add narration to the exported video</label>
       <label>Narration voice (English)</label>
       <select id="aNarrVoice"><option value="af_heart">Heart — female, natural (recommended)</option><option value="af_bella">Bella — female</option><option value="am_adam">Adam — male</option><option value="am_michael">Michael — male</option><option value="bf_emma">Emma — female (UK)</option><option value="bf_isabella">Isabella — female (UK)</option></select>
@@ -879,6 +879,12 @@ $("listenBtn").addEventListener("click",()=>{initAudio(false);if(AC.state==="sus
   setTimeout(()=>{if($("listenBtn").dataset.on){stopMusic();$("listenBtn").dataset.on="";$("listenBtn").textContent="▶ Listen to selected music";}},8000);});
 $("aVoiceType").addEventListener("change",loadVoices);$("aVoiceLang").addEventListener("change",loadVoices);
 $("testVoiceBtn").addEventListener("click",()=>{if($("aVoiceSel").value==="off"){toast("Pehle Voice dropdown se koi voice select karein.");return;}speak("Welcome to DK Quiz. This is the voice preview.");});
+$("aNarr").addEventListener("change",()=>{
+  if(!$("aNarr").checked)return;
+  $("narrMsg").innerHTML=`<div class="note">🎙 Voice engine tayyar ho raha hai…</div>`;
+  loadKokoro().then(()=>{$("narrMsg").innerHTML=`<div class="note">🎙 Voice engine tayyar hai — video banate waqt awaz foran banegi.</div>`;})
+    .catch(()=>{$("narrMsg").innerHTML=`<div class="err">Voice engine load nahi hua — internet check karke dobara tick karein (video phir bhi baghair awaz ke ban jayegi).</div>`;});
+});
 $("prevBtn").addEventListener("click",()=>runPlayback(null));
 $("stopBtn").addEventListener("click",stopAll);
 /* ---------- create video ---------- */
@@ -951,25 +957,35 @@ async function renderOfflineAudio(tl,total,t0w=0,t1w=total){
 /* ---------- video narration (Kokoro, generated in-browser, mixed into the export) ---------- */
 let narrationItems=[],narrVol=1;
 const narrCache=new Map();
+let kokoroPromise=null;
+function loadKokoro(){
+  if(!kokoroPromise){
+    kokoroPromise=(async()=>{
+      const {KokoroTTS}=await import("https://cdn.jsdelivr.net/npm/kokoro-js/+esm");
+      return KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:"q8"});
+    })();
+    kokoroPromise.catch(()=>{kokoroPromise=null;});
+  }
+  return kokoroPromise;
+}
 async function buildNarration(tl){
   const s=settings();
   $("status").textContent="🎙 Voice model load ho raha hai (pehli dafa ~30 MB download)…";
-  const {KokoroTTS}=await import("https://cdn.jsdelivr.net/npm/kokoro-js/+esm");
-  const tts=await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:"q8"});
+  const tts=await loadKokoro();
   const voice=$("aNarrVoice").value;
   narrVol=num("aNarrVol",100)/100;
   const read=$("aRead").value;
   const items=[];let acc=0;
   for(const seg of tl){
     const segStart=acc;acc+=seg.dur;
-    if(seg.kind==="intro"){items.push({start:segStart,text:(s.introTitle+" "+s.introSub).trim()});}
+    if(seg.kind==="intro"){items.push({kind:"intro",start:segStart,text:(s.introTitle+" "+s.introSub).trim()});}
     else if(seg.kind==="q"&&seg.phase==="delay"){
       const q=questions[seg.qi];let text=q.text;
       if(read!=="q")q.options.forEach((o,i)=>{text+=" "+"ABCD"[i]+". "+o+".";});
       if(read==="qoa")text+=" The correct answer is "+"ABCD"[q.answer]+". "+q.options[q.answer]+".";
-      items.push({start:segStart,text});
+      items.push({kind:"q",qi:seg.qi,start:segStart,text});
     }
-    else if(seg.kind==="outro"){items.push({start:segStart,text:(s.outroTitle+" "+s.outroSub).trim()});}
+    else if(seg.kind==="outro"){items.push({kind:"outro",start:segStart,text:(s.outroTitle+" "+s.outroSub).trim()});}
   }
   const out=[];
   for(let i=0;i<items.length;i++){
@@ -985,9 +1001,40 @@ async function buildNarration(tl){
       for(let j=0;j<n;j++){const pos=j*srIn/48000,i0=Math.floor(pos),f=pos-i0;d48[j]=pcm[i0]*(1-f)+pcm[Math.min(i0+1,pcm.length-1)]*f;}
       narrCache.set(key,d48);
     }
-    out.push({start:it.start,data:d48});
+    out.push({kind:it.kind,qi:it.qi,text:it.text,data:d48,dur:d48.length/48000});
   }
   narrationItems=out;
+  return out;
+}
+/* Stretch a segment when its voice is longer than the segment, so a voice starts exactly
+   when its question appears and ALWAYS finishes before the next question (same time, same
+   question — never one question's voice over another question). The stretched segment is the
+   question's options phase (options simply stay visible longer); intro/outro stretch directly. */
+function fitNarrationToTimeline(tl){
+  if(!narrationItems.length)return;
+  const qSegDur=qi=>tl.reduce((a,s)=>a+(s.kind==="q"&&s.qi===qi?s.dur:0),0);
+  const introSeg=tl.find(s=>s.kind==="intro"),outroSeg=tl.find(s=>s.kind==="outro");
+  for(const it of narrationItems){
+    if(it.kind==="intro"&&introSeg){if(it.dur>introSeg.dur+0.5)introSeg.dur=it.dur+0.3;}
+    else if(it.kind==="outro"&&outroSeg){if(it.dur>outroSeg.dur+0.5)outroSeg.dur=it.dur+0.3;}
+    else if(it.kind==="q"){
+      const sd=qSegDur(it.qi);
+      if(it.dur>sd+0.5){const optSeg=tl.find(s=>s.kind==="q"&&s.qi===it.qi&&s.phase==="options");
+        if(optSeg)optSeg.dur+=(it.dur-sd+0.3);}
+    }
+  }
+  let acc=0;const starts={};
+  for(const s of tl){
+    if(s.kind==="intro")starts.intro=acc;
+    else if(s.kind==="outro")starts.outro=acc;
+    else if(s.kind==="q"&&s.phase==="delay")starts["q"+s.qi]=acc;
+    acc+=s.dur;
+  }
+  for(const it of narrationItems){
+    if(it.kind==="intro")it.start=starts.intro;
+    else if(it.kind==="outro")it.start=starts.outro;
+    else it.start=starts["q"+it.qi];
+  }
 }
 /* ----- minimal MP4 muxer (H.264 + AAC) ----- */
 function u8a(...parts){let n=0;for(const p of parts)n+=p.length;const out=new Uint8Array(n);let o=0;for(const p of parts){out.set(p,o);o+=p.length;}return out;}
@@ -1073,7 +1120,7 @@ async function pickVideoConfig(W,H,fps,bps){
 }
 async function createViaFast(fps,bps){
   setCanvasSize();
-  const tl=buildTimeline(),total=tl.reduce((a,s)=>a+s.dur,0),totalFrames=Math.max(1,Math.round(total*fps));
+  let tl=buildTimeline(),total=tl.reduce((a,s)=>a+s.dur,0),totalFrames=Math.max(1,Math.round(total*fps));
   frozenSettings=settings(); // read the form ONCE for the whole export — not on every frame
   const vPick=await pickVideoConfig(cv.width,cv.height,fps,bps);
   if(!vPick)throw new Error("nocodec");
@@ -1092,6 +1139,7 @@ async function createViaFast(fps,bps){
     try{await buildNarration(tl);}
     catch(e){if(e.message==="cancelled")throw e;toast("Narration nahi ban saki — video baghair awaz ke ban rahi hai.");narrationItems=[];}
   }
+  if(narrationItems.length){fitNarrationToTimeline(tl);total=tl.reduce((a,s)=>a+s.dur,0);totalFrames=Math.max(1,Math.round(total*fps));}
   // encode audio — soundtrack rendered in ~30s windows so phones never run out of memory
   let aChunks=null,aCfgOut=null;
   if(aCfg){
