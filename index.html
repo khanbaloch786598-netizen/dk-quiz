@@ -580,6 +580,25 @@ function wrap(text,x,y,maxW,lh,maxLines){
   if(cur)lines.push(cur);lines=lines.slice(0,maxLines||6);
   lines.forEach((l,i)=>ctx.fillText(l,x,y+i*lh));return lines.length;
 }
+/* Fit a question's text in at most 4 lines: shrink the font until it fits instead of
+   cutting the question off mid-sentence (long questions used to truncate at 4 lines).
+   Same cache pattern as fitOpt so frame rendering stays fast. */
+const qFitCache=new Map();
+function fitQ(text,maxW,baseFont,F){
+  const key=F+"|"+baseFont+"|"+maxW+"|"+text;
+  let r=qFitCache.get(key);
+  if(r)return r;
+  let f=baseFont,ls=1;
+  const count=()=>{ctx.font=`700 ${f}px ${F}`;const ws=String(text).split(/\s+/);let cur="";ls=1;
+    for(const w of ws){const t=cur?cur+" "+w:w;
+      if(ctx.measureText(t).width>maxW&&cur){ls++;cur=w;}else cur=t;}};
+  count();
+  while(f>20&&ls>4){f-=2;count();}
+  if(qFitCache.size>5000)qFitCache.clear();
+  r={font:f,lines:ls,lh:Math.round(f*1.22)};
+  qFitCache.set(key,r);
+  return r;
+}
 /* Fit an option's text inside its pill: shrink the font until it fits in at most 2 lines
    within the text width and the pill height (long options used to overflow the pill and
    overlap the next column). Cached per text/size so frame rendering stays fast. */
@@ -672,17 +691,18 @@ function drawFrame(state,t){
         for(let i=0;i<12;i++){const a=i*Math.PI/6;ctx.fillText("·",wx+Math.cos(a)*(wr-11),wy+Math.sin(a)*(wr-11)+4);}}
     }}
   // question
-  const qFont=`700 ${Math.round(41*s.textSize)}px ${F}`;
+  const qFit=fitQ(q.text,W*0.86,Math.round(41*s.textSize),F);
+  const qFont=`700 ${qFit.font}px ${F}`;
   ctx.font=qFont;
   let qTop=H*0.185;
   if(s.qStyle==="Panel card"){ctx.fillStyle="rgba(0,0,0,.28)";rr(W*0.05,qTop-52,W*0.9,118,16);ctx.fill();}
   if(s.qStyle==="Accent bar"){ctx.fillStyle=s.acc;ctx.fillRect(W*0.06,qTop-44,7,86);}
   ctx.fillStyle=mainCol;
-  const qLines=wrap(q.text,cx,qTop,W*0.86,Math.round(50*s.textSize),4);
-  if(s.bgStyle==="Aurora mesh"){ctx.fillStyle="rgba(255,255,255,.92)";ctx.fillRect(W*0.05,qTop+qLines*Math.round(50*s.textSize)+H*0.012,W*0.9,4);}
+  const qLines=wrap(q.text,cx,qTop,W*0.86,qFit.lh,4);
+  if(s.bgStyle==="Aurora mesh"){ctx.fillStyle="rgba(255,255,255,.92)";ctx.fillRect(W*0.05,qTop+qLines*qFit.lh+H*0.012,W*0.9,4);}
   // options
   const cols=W<800?1:2,gapX=22,gapY=18,gridW=W*0.9,cardW=cols===1?gridW:(gridW-gapX)/2,cardH=H*0.115;
-  const gridY=qTop+qLines*Math.round(50*s.textSize)+H*0.05;
+  const gridY=qTop+qLines*qFit.lh+H*0.05;
   const letters=s.labels==="1234"?"1234":s.labels==="none"?"    ":"ABCD";
   q.options.forEach((opt,i)=>{
     const col=cols===1?0:i%cols,row=Math.floor(i/cols);
