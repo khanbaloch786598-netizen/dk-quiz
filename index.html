@@ -763,7 +763,7 @@ function beep(freq,dur,type,vol,when){
   g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(masterGain);o.start(t0);o.stop(t0+dur+0.05);
 }
 const sfx={
-  tick(){if($("aTick").checked)beep($("aTickStyle").value==="Soft tap"?300:$("aTickStyle").value==="Beep"?880:950,$("aTickStyle").value==="Beep"?0.09:0.06,"square",0.10*num("aFx",70)/70);},
+  tick(){if($("aTick").checked)beep($("aTickStyle").value==="Soft tap"?300:$("aTickStyle").value==="Beep"?880:950,$("aTickStyle").value==="Beep"?0.09:0.06,"square",0.30*num("aFx",70)/70);},
   pop(){if($("aPop").checked)beep(520,0.09,"sine",0.25*num("aFx",70)/70);},
   ding(){if($("aDing").checked){beep(880,0.16,"sine",0.3*num("aFx",70)/70);beep(1318,0.3,"sine",0.3*num("aFx",70)/70,0.12);}}
 };
@@ -941,7 +941,7 @@ async function renderOfflineAudio(tl,total,t0w=0,t1w=total){
       const q=questions[seg.qi],lt=segStart-t0w;
       if(seg.phase==="options"&&$("aPop").checked)for(let i=0;i<q.options.length;i++)beepAt(oc,fxBus,520,0.09,"sine",0.25*fx,LT(lt+i*settings().gap));
       if(seg.phase==="count"&&$("aTick").checked){const stl=$("aTickStyle").value;const f=stl==="Soft tap"?300:stl==="Beep"?880:950;
-        for(let k=0;k<Math.ceil(seg.dur);k++)beepAt(oc,fxBus,f,stl==="Beep"?0.09:0.06,"square",0.10*fx,LT(lt+k));}
+        for(let k=0;k<Math.ceil(seg.dur);k++)beepAt(oc,fxBus,f,stl==="Beep"?0.09:0.06,"square",0.30*fx,LT(lt+k));}
       if(seg.phase==="reveal"&&$("aDing").checked){beepAt(oc,fxBus,880,0.16,"sine",0.3*fx,LT(lt));beepAt(oc,fxBus,1318,0.3,"sine",0.3*fx,LT(lt+0.12));}
     }
   }
