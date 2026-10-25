@@ -165,7 +165,7 @@ Answer: C</textarea>
       <label>Video size</label>
       <select id="dSize"><option value="16:9">16:9 · YouTube</option><option value="9:16">9:16 · Shorts / Reels / TikTok</option></select>
       <label>Theme (changes the whole design)</label>
-      <select id="dTheme"><option value="">Choose a theme…</option><option value="royal">Royal</option><option value="neon">Neon night</option><option value="tv">TV quiz show</option><option value="minimal">Minimal white</option><option value="kids">Kids fun</option><option value="darkpro">Dark pro</option><option value="classroom">Classroom</option><option value="ocean">Ocean breeze</option><option value="sunset">Sunset glow</option><option value="forest">Forest</option><option value="retro">Retro arcade</option><option value="luxury">Luxury gold</option></select>
+      <select id="dTheme"><option value="">Choose a theme…</option><option value="royal">Royal</option><option value="neon">Neon night</option><option value="tv">TV quiz show</option><option value="minimal">Minimal white</option><option value="kids">Kids fun</option><option value="darkpro">Dark pro</option><option value="classroom">Classroom</option><option value="ocean">Ocean breeze</option><option value="sunset">Sunset glow</option><option value="forest">Forest</option><option value="retro">Retro arcade</option><option value="luxury">Luxury gold</option><option value="shorts">Shorts pop (video style)</option><option value="candy">Candy pop</option><option value="fire">Fire energy</option></select>
       <label>Colour palette</label>
       <select id="dPalette"><option>Royal</option><option>Ocean</option><option>Sunset</option><option>Forest</option><option>Midnight</option><option>Rose</option><option>Slate</option><option>Clean (light)</option><option>Mint (light)</option><option>Custom</option></select>
       <div class="row">
@@ -177,7 +177,7 @@ Answer: C</textarea>
         <div><label>Correct answer colour</label><input type="color" id="dCorrect" value="#22c55e"></div>
       </div>
       <label>Background style</label>
-      <select id="dBgStyle"><option>Gradient diagonal</option><option>Gradient vertical</option><option>Radial glow</option><option>Solid colour</option></select>
+      <select id="dBgStyle"><option>Gradient diagonal</option><option>Gradient vertical</option><option>Radial glow</option><option>Solid colour</option><option>Aurora mesh</option></select>
       <label>Text colour</label>
       <select id="dText"><option value="auto">Auto</option><option value="white">White</option><option value="dark">Dark</option></select>
     </div>
@@ -186,7 +186,7 @@ Answer: C</textarea>
       <label>Font</label>
       <select id="dFont"><option>Modern</option><option>Classic</option><option>Friendly</option><option>Typewriter</option><option>Bold</option><option>Wide</option></select>
       <label>Text size: <span id="dTextSizeV">100%</span></label>
-      <input type="range" id="dTextSize" min="70" max="130" value="100">
+      <input type="range" id="dTextSize" min="70" max="160" value="100">
       <label>Option corner radius: <span id="dRadiusV">20px</span></label>
       <input type="range" id="dRadius" min="0" max="55" value="20">
       <label>Option labels</label>
@@ -301,6 +301,17 @@ Answer: C</textarea>
       <label>Voice volume: <span id="aVolV">100%</span></label><input type="range" id="aVol" min="0" max="100" value="100">
       <div class="btnrow"><button class="btn" id="testVoiceBtn">🔈 Test voice</button></div>
     </div>
+    <div class="card">
+      <h3>🎙 Narration in video (AI voice)</h3>
+      <p class="note">The downloaded video will also speak the questions aloud — intro, every question with its options, and the outro — just like popular quiz videos. The voice is generated inside your browser (free); first use downloads the voice model once (~30 MB) and then it stays cached in this browser.</p>
+      <label class="check"><input type="checkbox" id="aNarr"> Add narration to the exported video</label>
+      <label>Narration voice (English)</label>
+      <select id="aNarrVoice"><option value="af_heart">Heart — female, natural (recommended)</option><option value="af_bella">Bella — female</option><option value="am_adam">Adam — male</option><option value="am_michael">Michael — male</option><option value="bf_emma">Emma — female (UK)</option><option value="bf_isabella">Isabella — female (UK)</option></select>
+      <label>Narration volume: <span id="aNarrVolV">100%</span></label>
+      <input type="range" id="aNarrVol" min="0" max="100" value="100">
+      <p class="note">Narration works with fast export (Auto / Fast MP4 only). It adds extra time while the voices are generated — the status line shows the progress. If the voice model cannot load, the video is still created without narration.</p>
+      <div id="narrMsg"></div>
+    </div>
   </section>
 
   <!-- EXPORT -->
@@ -380,7 +391,7 @@ Answer: B
         <li><b>Fast export</b> builds a real MP4 file (H.264 + AAC) quicker than real time and plays in phone galleries, WhatsApp, YouTube and video editors. It needs a recent Chrome or Edge on a computer or Android. Keep the tab open until it finishes.</li>
         <li><b>Compatibility mode</b> records in real time. Use it only if fast export is not available.</li>
         <li>Clock ticks, sound effects and background music are included in the video file. Pick a free built-in music track, or upload your own MP3 / WAV / M4A file in Audio &amp; Voice.</li>
-        <li>The spoken voice reads questions aloud in <b>Preview only</b>. A browser cannot place its voice inside the video file, so add a voice-over in any video editor if you need it.</li>
+        <li>The device voice reads questions aloud in <b>Preview</b>. For a voice inside the downloaded video, turn on <b>🎙 Narration in video</b> in Audio &amp; Voice — the voice is generated in your browser (English, free).</li>
         <li>Available voices depend on your device. Windows, Mac, Android and iPhone each provide their own list.</li>
         <li>For very long videos (100+ questions) use a computer and pick the <b>Small file</b> quality. Phones may run out of memory.</li>
         <li>Download your video before closing the page.</li>
@@ -575,7 +586,13 @@ function drawFrame(state,t){
   setCanvasSize();const s=settings(),W=cv.width,H=cv.height;
   const mainCol=s.textCol==="dark"?"#141a30":"#ffffff";
   let g;const gk=s.bgStyle+"|"+s.bg1+"|"+s.bg2+"|"+W+"x"+H;
-  if(gradCache[gk])g=gradCache[gk];
+  if(s.bgStyle==="Aurora mesh"){
+    ctx.fillStyle=s.bg1;ctx.fillRect(0,0,W,H);
+    const blobs=[["#e11d48",0.10,0.02,0.55],["#d946ef",0.78,0.00,0.60],["#2563eb",0.02,0.88,0.55],["#16a34a",0.92,0.92,0.50],["#7c3aed",0.50,0.45,0.70]];
+    for(const [col,fx,fy,fr] of blobs){const rg=ctx.createRadialGradient(W*fx,H*fy,10,W*fx,H*fy,Math.max(W,H)*fr);rg.addColorStop(0,col+"cc");rg.addColorStop(1,col+"00");ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);}
+    g="rgba(0,0,0,0)";
+  }
+  else if(gradCache[gk])g=gradCache[gk];
   else{
     if(s.bgStyle==="Gradient vertical"){g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,s.bg1);g.addColorStop(1,s.bg2);}
     else if(s.bgStyle==="Radial glow"){g=ctx.createRadialGradient(W/2,H/2,60,W/2,H/2,Math.max(W,H));g.addColorStop(0,s.bg2);g.addColorStop(1,s.bg1);}
@@ -584,7 +601,7 @@ function drawFrame(state,t){
     gradCache[gk]=g;
   }
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  if(s.bgStyle!=="Solid colour"){const rk="glow|"+W+"x"+H;let rg=gradCache[rk];
+  if(s.bgStyle!=="Solid colour"&&s.bgStyle!=="Aurora mesh"){const rk="glow|"+W+"x"+H;let rg=gradCache[rk];
     if(!rg){rg=ctx.createRadialGradient(W*0.8,H*0.15,20,W*0.8,H*0.15,W*0.7);rg.addColorStop(0,"rgba(255,255,255,.13)");rg.addColorStop(1,"rgba(255,255,255,0)");gradCache[rk]=rg;}
     ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);}
   bubbles(W,H,t,s.anim);
@@ -600,7 +617,7 @@ function drawFrame(state,t){
   const cx=W/2,F=FONTS[s.font]||FONTS.Modern;
   if(state.kind==="intro"){
     ctx.beginPath();ctx.arc(cx,H*0.33,54,0,7);ctx.fillStyle="rgba(0,0,0,.3)";ctx.fill();ctx.font="50px Arial";ctx.fillStyle="#fff";ctx.fillText("⏱",cx,H*0.33+17);
-    ctx.font=`800 ${Math.round(76*s.textSize)}px ${F}`;ctx.fillStyle=mainCol;ctx.fillText(s.introTitle,cx,H*0.52);
+    ctx.font=`800 ${Math.round(76*s.textSize)}px ${F}`;ctx.fillStyle=s.bgStyle==="Aurora mesh"?s.acc:mainCol;ctx.fillText(s.introTitle,cx,H*0.52);
     ctx.font=`400 ${Math.round(34*s.textSize)}px ${F}`;ctx.fillStyle=mainCol==="#ffffff"?"rgba(255,255,255,.85)":"rgba(20,26,48,.8)";ctx.fillText(s.introSub,cx,H*0.52+56);return;}
   if(state.kind==="outro"){
     ctx.font=`800 ${Math.round(62*s.textSize)}px ${F}`;ctx.fillStyle=mainCol;
@@ -642,6 +659,7 @@ function drawFrame(state,t){
   if(s.qStyle==="Accent bar"){ctx.fillStyle=s.acc;ctx.fillRect(W*0.06,qTop-44,7,86);}
   ctx.fillStyle=mainCol;
   const qLines=wrap(q.text,cx,qTop,W*0.86,Math.round(50*s.textSize),4);
+  if(s.bgStyle==="Aurora mesh"){ctx.fillStyle="rgba(255,255,255,.92)";ctx.fillRect(W*0.05,qTop+qLines*Math.round(50*s.textSize)+H*0.012,W*0.9,4);}
   // options
   const cols=W<800?1:2,gapX=22,gapY=18,gridW=W*0.9,cardW=cols===1?gridW:(gridW-gapX)/2,cardH=H*0.115;
   const gridY=qTop+qLines*Math.round(50*s.textSize)+H*0.05;
@@ -664,11 +682,12 @@ function drawFrame(state,t){
     else if(s.cardStyle==="Flat 3D"){ctx.fillStyle="rgba(0,0,0,.35)";rr(x,yy+6,cardW,cardH,s.radius);ctx.fill();ctx.fillStyle="rgba(70,60,160,.95)";rr(x,yy,cardW,cardH,s.radius);ctx.fill();}
     else{ctx.fillStyle="rgba(255,255,255,.13)";rr(x,yy,cardW,cardH,s.radius);ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle="rgba(255,255,255,.35)";ctx.stroke();}
     if(s.labels!=="none"){
-      const br=cardH*0.31,bx2=x+br+14,by2=yy+cardH/2;
+      const aurora=s.bgStyle==="Aurora mesh";
+      const br=aurora?cardH*0.5:cardH*0.31,bx2=aurora?x+br:x+br+14,by2=yy+cardH/2;
       ctx.beginPath();
       if(s.badge==="Circle")ctx.arc(bx2,by2,br,0,7);else rr(bx2-br,by2-br,br*2,br*2,10);
-      ctx.fillStyle=isCorrect?"rgba(0,0,0,.25)":s.acc;ctx.fill();
-      ctx.font=`800 ${Math.round(br*1.05)}px 'Segoe UI',Arial`;ctx.fillStyle=isCorrect?"#fff":"#221a00";
+      ctx.fillStyle=(isCorrect&&!aurora)?"rgba(0,0,0,.25)":s.acc;ctx.fill();
+      ctx.font=`800 ${Math.round(br*1.05)}px 'Segoe UI',Arial`;ctx.fillStyle=(isCorrect&&!aurora)?"#fff":"#221a00";
       ctx.fillText(letters[i],bx2,by2+br*0.38);
       ctx.textAlign="left";ctx.font=`600 ${Math.round(30*s.textSize)}px ${F}`;ctx.fillStyle=cardTxt;
       const tx=x+br*2+28;wrap(opt,tx+Math.min(ctx.measureText(opt).width,(cardW-br*2-50))/2,by2+10,cardW-br*2-46,36,2);ctx.textAlign="center";
@@ -676,7 +695,7 @@ function drawFrame(state,t){
       ctx.font=`600 ${Math.round(30*s.textSize)}px ${F}`;ctx.fillStyle=cardTxt;
       wrap(opt,x+cardW/2,yy+cardH/2+10,cardW-40,36,2);
     }
-    if(isCorrect){ctx.font="700 25px Arial";ctx.fillStyle="#fff";ctx.fillText("✓",x+cardW-28,yy+cardH/2+8);}
+    if(isCorrect&&s.bgStyle!=="Aurora mesh"){ctx.font="700 25px Arial";ctx.fillStyle="#fff";ctx.fillText("✓",x+cardW-28,yy+cardH/2+8);}
     ctx.restore();
   });
   if(state.phase==="reveal"){
@@ -832,11 +851,18 @@ $("tabs").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)
 document.querySelectorAll(".jump button").forEach(b=>b.addEventListener("click",()=>{if(!playing)drawStill(b.dataset.jump);}));
 $("qbox").addEventListener("input",refreshStats);
 ["dSize","dTheme","dPalette","dBg1","dBg2","dAcc","dCorrect","dBgStyle","dText","dFont","dTextSize","dRadius","dLabels","dCardStyle","dQStyle","dBadge","eCounter","eProgress","eCdStyle","eWatch","eWatchSize","eAnim","eConfetti","eDim","eBanner","bName","bCorner","bSize","bOpacity","bIntroSec","bOutroSec","bIntroTitle","bIntroSub","bOutroTitle","bOutroSub","tDelay","tGap","tCount","tReveal"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",()=>{updLabels();refreshStats();});});
-function updLabels(){$("dTextSizeV").textContent=$("dTextSize").value+"%";$("dRadiusV").textContent=$("dRadius").value+"px";$("eWatchV").textContent=$("eWatchSize").value+"%";$("bSizeV").textContent=$("bSize").value+"px";$("bOpV").textContent=$("bOpacity").value+"%";$("aFxV").textContent=$("aFx").value+"%";$("aMusV").textContent=$("aMus").value+"%";$("aRateV").textContent=$("aRate").value+"%";$("aPitchV").textContent=$("aPitch").value+"%";$("aVolV").textContent=$("aVol").value+"%";}
+function updLabels(){$("dTextSizeV").textContent=$("dTextSize").value+"%";$("dRadiusV").textContent=$("dRadius").value+"px";$("eWatchV").textContent=$("eWatchSize").value+"%";$("bSizeV").textContent=$("bSize").value+"px";$("bOpV").textContent=$("bOpacity").value+"%";$("aFxV").textContent=$("aFx").value+"%";$("aMusV").textContent=$("aMus").value+"%";$("aRateV").textContent=$("aRate").value+"%";$("aPitchV").textContent=$("aPitch").value+"%";$("aVolV").textContent=$("aVol").value+"%";if($("aNarrVolV"))$("aNarrVolV").textContent=$("aNarrVol").value+"%";}
 ["aFx","aMus","aRate","aPitch","aVol"].forEach(id=>$(id).addEventListener("input",updLabels));
-const THEMES={royal:["#150a3d","#4c1d95","#f5b921"],neon:["#050510","#1e1b4b","#22d3ee"],tv:["#0a1030","#7c2d12","#facc15"],minimal:["#e8ecf5","#c7d0e6","#4f46e5"],kids:["#7c3aed","#ec4899","#fde047"],darkpro:["#0a0a0c","#26262b","#a1a1aa"],classroom:["#14532d","#166534","#fbbf24"],ocean:["#02182e","#0369a1","#38bdf8"],sunset:["#2b0a1e","#9d2449","#fb923c"],forest:["#052e16","#15803d","#a3e635"],retro:["#1a0533","#4c0519","#f472b6"],luxury:["#171204","#57430a","#f5b921"]};
+const THEMES={royal:["#150a3d","#4c1d95","#f5b921"],neon:["#050510","#1e1b4b","#22d3ee"],tv:["#0a1030","#7c2d12","#facc15"],minimal:["#e8ecf5","#c7d0e6","#4f46e5"],kids:["#7c3aed","#ec4899","#fde047"],darkpro:["#0a0a0c","#26262b","#a1a1aa"],classroom:["#14532d","#166534","#fbbf24"],ocean:["#02182e","#0369a1","#38bdf8"],sunset:["#2b0a1e","#9d2449","#fb923c"],forest:["#052e16","#15803d","#a3e635"],retro:["#1a0533","#4c0519","#f472b6"],luxury:["#171204","#57430a","#f5b921"],
+shorts:{bg1:"#12081f",bg2:"#3b0764",acc:"#ffc400",correct:"#22d3ee",radius:55,cardStyle:"Solid white",badge:"Circle",font:"Bold",textSize:150,textCol:"white",bgStyle:"Aurora mesh",qStyle:"Centered",counter:true,progress:false,cdStyle:"Hidden",banner:false,labels:"ABCD",dim:false,confetti:false},
+candy:["#831843","#db2777","#fde047"],fire:["#450a0a","#dc2626","#fbbf24"]};
 const PALETTES={Royal:"royal",Ocean:"ocean",Sunset:"sunset",Forest:"forest",Midnight:"darkpro",Rose:"sunset",Slate:"darkpro",Custom:null};
-$("dTheme").addEventListener("change",()=>{const t=THEMES[$("dTheme").value];if(t){$("dBg1").value=t[0];$("dBg2").value=t[1];$("dAcc").value=t[2];refreshStats();}});
+$("dTheme").addEventListener("change",()=>{
+  const t=THEMES[$("dTheme").value];if(!t)return;
+  if(Array.isArray(t)){$("dBg1").value=t[0];$("dBg2").value=t[1];$("dAcc").value=t[2];}
+  else{const set=(id,v)=>{if(v===undefined)return;const el=$(id);if(!el)return;if(el.type==="checkbox")el.checked=!!v;else el.value=v;};
+    set("dBg1",t.bg1);set("dBg2",t.bg2);set("dAcc",t.acc);set("dCorrect",t.correct);set("dRadius",t.radius);set("dCardStyle",t.cardStyle);set("dBadge",t.badge);set("dFont",t.font);set("dTextSize",t.textSize);set("dText",t.textCol);set("dBgStyle",t.bgStyle);set("dQStyle",t.qStyle);set("eCounter",t.counter);set("eProgress",t.progress);set("eCdStyle",t.cdStyle);set("eBanner",t.banner);set("dLabels",t.labels);set("eDim",t.dim);set("eConfetti",t.confetti);}
+  updLabels();refreshStats();});
 $("dPalette").addEventListener("change",()=>{const k=PALETTES[$("dPalette").value];const t=k?THEMES[k]:null;
   if($("dPalette").value==="Clean (light)"){$("dBg1").value="#e8ecf5";$("dBg2").value="#c7d0e6";$("dAcc").value="#4f46e5";$("dText").value="dark";}
   else if($("dPalette").value==="Mint (light)"){$("dBg1").value="#d9f5e5";$("dBg2").value="#a7e8c8";$("dAcc").value="#059669";$("dText").value="dark";}
@@ -907,7 +933,61 @@ async function renderOfflineAudio(tl,total,t0w=0,t1w=total){
           g.gain.setValueAtTime(0.0001,LT(t0));g.gain.exponentialRampToValueAtTime(mode==="suspense"?0.07:0.11,LT(Math.min(t0+0.35,t0+stepDur*0.9)));
           g.gain.exponentialRampToValueAtTime(0.0001,LT(t0+stepDur*0.95));o.connect(g);g.connect(musBus);o.start(LT(t0));o.stop(LT(t0+stepDur));});}}
   }
+  if(narrationItems.length){
+    const nBus=oc.createGain();nBus.gain.value=narrVol;nBus.connect(master);
+    for(const it of narrationItems){
+      const itEnd=it.start+it.data.length/48000;
+      if(itEnd<=t0w||it.start>=t1w)continue;
+      const data=it.data.subarray(Math.round(Math.max(0,t0w-it.start)*48000));
+      if(!data.length)continue;
+      const buf=oc.createBuffer(1,data.length,48000);buf.copyToChannel(data,0);
+      const src=oc.createBufferSource();src.buffer=buf;src.connect(nBus);
+      src.start(Math.max(0,it.start-t0w));
+    }
+  }
   return await oc.startRendering();
+}
+
+/* ---------- video narration (Kokoro, generated in-browser, mixed into the export) ---------- */
+let narrationItems=[],narrVol=1;
+const narrCache=new Map();
+async function buildNarration(tl){
+  const s=settings();
+  $("status").textContent="🎙 Voice model load ho raha hai (pehli dafa ~30 MB download)…";
+  const {KokoroTTS}=await import("https://cdn.jsdelivr.net/npm/kokoro-js/+esm");
+  const tts=await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:"q8"});
+  const voice=$("aNarrVoice").value;
+  narrVol=num("aNarrVol",100)/100;
+  const read=$("aRead").value;
+  const items=[];let acc=0;
+  for(const seg of tl){
+    const segStart=acc;acc+=seg.dur;
+    if(seg.kind==="intro"){items.push({start:segStart,text:(s.introTitle+" "+s.introSub).trim()});}
+    else if(seg.kind==="q"&&seg.phase==="delay"){
+      const q=questions[seg.qi];let text=q.text;
+      if(read!=="q")q.options.forEach((o,i)=>{text+=" "+"ABCD"[i]+". "+o+".";});
+      if(read==="qoa")text+=" The correct answer is "+"ABCD"[q.answer]+". "+q.options[q.answer]+".";
+      items.push({start:segStart,text});
+    }
+    else if(seg.kind==="outro"){items.push({start:segStart,text:(s.outroTitle+" "+s.outroSub).trim()});}
+  }
+  const out=[];
+  for(let i=0;i<items.length;i++){
+    if(createCancel)throw new Error("cancelled");
+    const it=items[i];if(!it.text)continue;
+    $("status").textContent=`🎙 Awaz bana raha hai… (${i+1}/${items.length})`;
+    const key=voice+"|"+it.text;
+    let d48=narrCache.get(key);
+    if(!d48){
+      const audio=await tts.generate(it.text,{voice});
+      const pcm=audio.audio,srIn=audio.sampling_rate||24000;
+      const n=Math.round(pcm.length*48000/srIn);d48=new Float32Array(n);
+      for(let j=0;j<n;j++){const pos=j*srIn/48000,i0=Math.floor(pos),f=pos-i0;d48[j]=pcm[i0]*(1-f)+pcm[Math.min(i0+1,pcm.length-1)]*f;}
+      narrCache.set(key,d48);
+    }
+    out.push({start:it.start,data:d48});
+  }
+  narrationItems=out;
 }
 /* ----- minimal MP4 muxer (H.264 + AAC) ----- */
 function u8a(...parts){let n=0;for(const p of parts)n+=p.length;const out=new Uint8Array(n);let o=0;for(const p of parts){out.set(p,o);o+=p.length;}return out;}
@@ -1007,6 +1087,11 @@ async function createViaFast(fps,bps){
   let wl=null;try{if(navigator.wakeLock)wl=await navigator.wakeLock.request("screen");}catch(e){}
   const relWL=()=>{if(wl){try{wl.release();}catch(e){}wl=null;}};
   createCancel=false;$("cancelBtn").style.display="";
+  narrationItems=[];
+  if($("aNarr").checked&&!$("xMode").value.startsWith("Compatibility")){
+    try{await buildNarration(tl);}
+    catch(e){if(e.message==="cancelled")throw e;toast("Narration nahi ban saki — video baghair awaz ke ban rahi hai.");narrationItems=[];}
+  }
   // encode audio — soundtrack rendered in ~30s windows so phones never run out of memory
   let aChunks=null,aCfgOut=null;
   if(aCfg){
