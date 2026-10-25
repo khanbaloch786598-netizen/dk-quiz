@@ -295,7 +295,7 @@ Answer: C</textarea>
       <select id="aVoiceSel"><option value="off">Off (no voice)</option></select>
       <div id="voiceMsg"></div>
       <label>Read aloud</label>
-      <select id="aRead"><option value="q">Question only</option><option value="qo" selected>Question + options</option><option value="qoa">Question + options + answer</option></select>
+      <select id="aRead"><option value="q">Question only</option><option value="qo">Question + options</option><option value="qoa" selected>Question + options + answer</option></select>
       <label>Speed: <span id="aRateV">100%</span></label><input type="range" id="aRate" min="50" max="200" value="100">
       <label>Pitch: <span id="aPitchV">100%</span></label><input type="range" id="aPitch" min="50" max="200" value="100">
       <label>Voice volume: <span id="aVolV">100%</span></label><input type="range" id="aVol" min="0" max="100" value="100">
@@ -303,7 +303,7 @@ Answer: C</textarea>
     </div>
     <div class="card">
       <h3>🎙 Narration in video (AI voice)</h3>
-      <p class="note">The downloaded video will also speak the questions aloud — intro, every question with its options, and the outro — just like popular quiz videos. The voice is generated inside your browser (free); ticking the box loads the voice engine right away (first use downloads the model once, ~30 MB, then it stays cached in this browser). Each voice starts exactly when its question appears and always finishes before the next question.</p>
+      <p class="note">The downloaded video will also speak the questions aloud — intro, every question with its options, and the outro — just like popular quiz videos. The voice is generated inside your browser (free); ticking the box loads the voice engine right away (first use downloads the model once, ~30 MB, then it stays cached in this browser). Each voice starts exactly when its question appears and always finishes before the next question — and the correct answer is spoken at the moment it is revealed, not before.</p>
       <label class="check"><input type="checkbox" id="aNarr"> Add narration to the exported video</label>
       <label>Narration voice (English)</label>
       <select id="aNarrVoice"><option value="af_heart">Heart — female, natural (recommended)</option><option value="af_bella">Bella — female</option><option value="am_adam">Adam — male</option><option value="am_michael">Michael — male</option><option value="bf_emma">Emma — female (UK)</option><option value="bf_isabella">Isabella — female (UK)</option></select>
@@ -897,14 +897,14 @@ $("qbox").addEventListener("input",refreshStats);
 function updLabels(){$("dTextSizeV").textContent=$("dTextSize").value+"%";$("dRadiusV").textContent=$("dRadius").value+"px";$("eWatchV").textContent=$("eWatchSize").value+"%";$("bSizeV").textContent=$("bSize").value+"px";$("bOpV").textContent=$("bOpacity").value+"%";$("aFxV").textContent=$("aFx").value+"%";$("aMusV").textContent=$("aMus").value+"%";$("aRateV").textContent=$("aRate").value+"%";$("aPitchV").textContent=$("aPitch").value+"%";$("aVolV").textContent=$("aVol").value+"%";if($("aNarrVolV"))$("aNarrVolV").textContent=$("aNarrVol").value+"%";}
 ["aFx","aMus","aRate","aPitch","aVol"].forEach(id=>$(id).addEventListener("input",updLabels));
 const THEMES={royal:["#150a3d","#4c1d95","#f5b921"],neon:["#050510","#1e1b4b","#22d3ee"],tv:["#0a1030","#7c2d12","#facc15"],minimal:["#e8ecf5","#c7d0e6","#4f46e5"],kids:["#7c3aed","#ec4899","#fde047"],darkpro:["#0a0a0c","#26262b","#a1a1aa"],classroom:["#14532d","#166534","#fbbf24"],ocean:["#02182e","#0369a1","#38bdf8"],sunset:["#2b0a1e","#9d2449","#fb923c"],forest:["#052e16","#15803d","#a3e635"],retro:["#1a0533","#4c0519","#f472b6"],luxury:["#171204","#57430a","#f5b921"],
-shorts:{bg1:"#12081f",bg2:"#3b0764",acc:"#ffc400",correct:"#22d3ee",radius:55,cardStyle:"Solid white",badge:"Circle",font:"Bold",textSize:150,textCol:"white",bgStyle:"Aurora mesh",qStyle:"Centered",counter:true,progress:false,cdStyle:"Hidden",banner:false,labels:"ABCD",dim:false,confetti:false},
+shorts:{bg1:"#12081f",bg2:"#3b0764",acc:"#ffc400",correct:"#22d3ee",radius:55,cardStyle:"Solid white",badge:"Circle",font:"Bold",textSize:150,textCol:"white",bgStyle:"Aurora mesh",qStyle:"Centered",counter:true,progress:false,cdStyle:"Stopwatch (recommended)",watch:"Neon ring",banner:false,labels:"ABCD",dim:false,confetti:false},
 candy:["#831843","#db2777","#fde047"],fire:["#450a0a","#dc2626","#fbbf24"]};
 const PALETTES={Royal:"royal",Ocean:"ocean",Sunset:"sunset",Forest:"forest",Midnight:"darkpro",Rose:"sunset",Slate:"darkpro",Custom:null};
 $("dTheme").addEventListener("change",()=>{
   const t=THEMES[$("dTheme").value];if(!t)return;
   if(Array.isArray(t)){$("dBg1").value=t[0];$("dBg2").value=t[1];$("dAcc").value=t[2];}
   else{const set=(id,v)=>{if(v===undefined)return;const el=$(id);if(!el)return;if(el.type==="checkbox")el.checked=!!v;else el.value=v;};
-    set("dBg1",t.bg1);set("dBg2",t.bg2);set("dAcc",t.acc);set("dCorrect",t.correct);set("dRadius",t.radius);set("dCardStyle",t.cardStyle);set("dBadge",t.badge);set("dFont",t.font);set("dTextSize",t.textSize);set("dText",t.textCol);set("dBgStyle",t.bgStyle);set("dQStyle",t.qStyle);set("eCounter",t.counter);set("eProgress",t.progress);set("eCdStyle",t.cdStyle);set("eBanner",t.banner);set("dLabels",t.labels);set("eDim",t.dim);set("eConfetti",t.confetti);}
+    set("dBg1",t.bg1);set("dBg2",t.bg2);set("dAcc",t.acc);set("dCorrect",t.correct);set("dRadius",t.radius);set("dCardStyle",t.cardStyle);set("dBadge",t.badge);set("dFont",t.font);set("dTextSize",t.textSize);set("dText",t.textCol);set("dBgStyle",t.bgStyle);set("dQStyle",t.qStyle);set("eCounter",t.counter);set("eProgress",t.progress);set("eCdStyle",t.cdStyle);set("eWatch",t.watch);set("eBanner",t.banner);set("dLabels",t.labels);set("eDim",t.dim);set("eConfetti",t.confetti);}
   updLabels();refreshStats();});
 $("dPalette").addEventListener("change",()=>{const k=PALETTES[$("dPalette").value];const t=k?THEMES[k]:null;
   if($("dPalette").value==="Clean (light)"){$("dBg1").value="#e8ecf5";$("dBg2").value="#c7d0e6";$("dAcc").value="#4f46e5";$("dText").value="dark";}
@@ -1025,8 +1025,11 @@ async function buildNarration(tl){
     else if(seg.kind==="q"&&seg.phase==="delay"){
       const q=questions[seg.qi];let text=q.text;
       if(read!=="q")q.options.forEach((o,i)=>{text+=" "+"ABCD"[i]+". "+o+".";});
-      if(read==="qoa")text+=" The correct answer is "+"ABCD"[q.answer]+". "+q.options[q.answer]+".";
       items.push({kind:"q",qi:seg.qi,start:segStart,text});
+    }
+    else if(seg.kind==="q"&&seg.phase==="reveal"&&read==="qoa"){
+      const q=questions[seg.qi];
+      items.push({kind:"a",qi:seg.qi,start:segStart,text:"The correct answer is "+"ABCD"[q.answer]+". "+q.options[q.answer]+"."});
     }
     else if(seg.kind==="outro"){items.push({kind:"outro",start:segStart,text:(s.outroTitle+" "+s.outroSub).trim()});}
   }
@@ -1065,17 +1068,23 @@ function fitNarrationToTimeline(tl){
       if(it.dur>sd+0.5){const optSeg=tl.find(s=>s.kind==="q"&&s.qi===it.qi&&s.phase==="options");
         if(optSeg)optSeg.dur+=(it.dur-sd+0.3);}
     }
+    else if(it.kind==="a"){
+      const revSeg=tl.find(s=>s.kind==="q"&&s.qi===it.qi&&s.phase==="reveal");
+      if(revSeg&&it.dur>revSeg.dur+0.5)revSeg.dur=it.dur+0.3;
+    }
   }
   let acc=0;const starts={};
   for(const s of tl){
     if(s.kind==="intro")starts.intro=acc;
     else if(s.kind==="outro")starts.outro=acc;
     else if(s.kind==="q"&&s.phase==="delay")starts["q"+s.qi]=acc;
+    else if(s.kind==="q"&&s.phase==="reveal")starts["a"+s.qi]=acc;
     acc+=s.dur;
   }
   for(const it of narrationItems){
     if(it.kind==="intro")it.start=starts.intro;
     else if(it.kind==="outro")it.start=starts.outro;
+    else if(it.kind==="a")it.start=starts["a"+it.qi];
     else it.start=starts["q"+it.qi];
   }
 }
