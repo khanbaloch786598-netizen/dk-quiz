@@ -1011,10 +1011,24 @@ function loadKokoro(){
   }
   return kokoroPromise;
 }
+/* Race a promise against a timeout and against the Cancel button. Kokoro's
+   generate() has no abort: without this, one slow clip hangs the page forever
+   at (1/102) and Cancel does nothing until that clip finishes. On timeout or
+   Cancel we abandon that clip's promise and let the caller fall back (video
+   without narration) or stop, instead of hanging. */
+function raceWithCancel(p, timeoutMs){
+  return new Promise((resolve, reject)=>{
+    let done=false;
+    const timer=setTimeout(()=>{if(!done){done=true;clearInterval(iv);reject(new Error("timeout"));}}, timeoutMs);
+    const iv=setInterval(()=>{if(createCancel){if(!done){done=true;clearTimeout(timer);clearInterval(iv);reject(new Error("cancelled"));}}},500);
+    p.then(v=>{if(!done){done=true;clearTimeout(timer);clearInterval(iv);resolve(v);}},
+           e=>{if(!done){done=true;clearTimeout(timer);clearInterval(iv);reject(e);}});
+  });
+}
 async function buildNarration(tl){
   const s=settings();
   $("status").textContent="🎙 Voice model load ho raha hai (pehli dafa ~30 MB download)…";
-  const tts=await loadKokoro();
+  const tts=await raceWithCancel(loadKokoro(), 120000);
   const voice=$("aNarrVoice").value;
   narrVol=num("aNarrVol",100)/100;
   const read=$("aRead").value;
@@ -1033,22 +1047,38 @@ async function buildNarration(tl){
     }
     else if(seg.kind==="outro"){items.push({kind:"outro",start:segStart,text:(s.outroTitle+" "+s.outroSub).trim()});}
   }
-  const out=[];
+  if(items.length>40)toast(`Zyada sawal: ${items.length} awazein banengi. Phone par pehli awaz sab se slow hoti hai, tab band na karein, screen on rakhein.`);
+  if(narrCache.size>200)narrCache.clear();
+  const out=[];let skipped=0,consecFail=0;
   for(let i=0;i<items.length;i++){
     if(createCancel)throw new Error("cancelled");
     const it=items[i];if(!it.text)continue;
-    $("status").textContent=`🎙 Awaz bana raha hai… (${i+1}/${items.length})`;
     const key=voice+"|"+it.text;
     let d48=narrCache.get(key);
     if(!d48){
-      const audio=await tts.generate(it.text,{voice});
-      const pcm=audio.audio,srIn=audio.sampling_rate||24000;
-      const n=Math.round(pcm.length*48000/srIn);d48=new Float32Array(n);
-      for(let j=0;j<n;j++){const pos=j*srIn/48000,i0=Math.floor(pos),f=pos-i0;d48[j]=pcm[i0]*(1-f)+pcm[Math.min(i0+1,pcm.length-1)]*f;}
-      narrCache.set(key,d48);
+      const t0=Date.now();
+      const tick=setInterval(()=>{$("status").textContent=`🎙 Awaz bana raha hai… (${i+1}/${items.length}) — is awaz me ${Math.round((Date.now()-t0)/1000)} sec lage, tab band na karein`;},1000);
+      try{
+        $("status").textContent=`🎙 Awaz bana raha hai… (${i+1}/${items.length})`;
+        const audio=await raceWithCancel(tts.generate(it.text,{voice}), 180000);
+        const pcm=audio.audio,srIn=audio.sampling_rate||24000;
+        const n=Math.round(pcm.length*48000/srIn);d48=new Float32Array(n);
+        for(let j=0;j<n;j++){const pos=j*srIn/48000,i0=Math.floor(pos),f=pos-i0;d48[j]=pcm[i0]*(1-f)+pcm[Math.min(i0+1,pcm.length-1)]*f;}
+        narrCache.set(key,d48);consecFail=0;
+      }catch(e){
+        clearInterval(tick);
+        if(e.message==="cancelled")throw e;
+        if(e.message==="timeout")throw new Error("narration-timeout");
+        skipped++;consecFail++;
+        if(consecFail>=3)throw new Error("narration-failed");
+        continue;
+      }
+      clearInterval(tick);
     }
     out.push({kind:it.kind,qi:it.qi,text:it.text,data:d48,dur:d48.length/48000});
   }
+  if(!out.length)throw new Error("narration-failed");
+  if(skipped)toast(`Narration: ${skipped} awazein skip hui, baqi awaz ke sath video ban rahi hai.`);
   narrationItems=out;
   return out;
 }
