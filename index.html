@@ -822,6 +822,15 @@ function loadVoices(){
     if(type==="male"&&!/male|david|daniel|guy|ravi/i.test(v.name))return;
     if(lang!=="all"&&!v.lang.toLowerCase().startsWith(lang))return;
     const o=document.createElement("option");o.value=i;o.textContent=`${v.name} (${v.lang})`;sel.appendChild(o);});
+  if(sel.options.length===1&&allVoices.length){
+    // Many Android voices do not say male/female in their name, so the
+    // Male/Female filter can hide every voice and look like "no male voice".
+    // Fall back to the full list (language filter only) so the user can
+    // Test voice each one and pick a boy/girl voice by ear.
+    allVoices.forEach((v,i)=>{
+      if(lang!=="all"&&!v.lang.toLowerCase().startsWith(lang))return;
+      const o=document.createElement("option");o.value=i;o.textContent=`${v.name} (${v.lang})`;sel.appendChild(o);});
+  }
   if([...sel.options].some(o=>o.value===cur))sel.value=cur;
   $("voiceMsg").innerHTML=allVoices.length?"":`<div class="err">No voices found on this device. Voice reader is unavailable here.</div>`;
 }
@@ -860,6 +869,8 @@ function runPlayback(onDone){
     $("playBar").style.width=(t/total*100)+"%";
     const key=st.kind+"|"+st.qi+"|"+st.phase;
     if(key!==lastSegKey){lastSegKey=key;lastTickSec=-1;lastPopCount=-1;
+      if(st.kind==="intro"){const s=settings();const t=(s.introTitle+" "+s.introSub).trim();if(t)speak(t);}
+      if(st.kind==="outro"){const s=settings();const t=(s.outroTitle+" "+s.outroSub).trim();if(t)speak(t);}
       if(st.kind==="q"&&st.phase==="delay"){const q=questions[st.qi];const mode=$("aRead").value;
         let txt=q.text;if(mode!=="q")txt+=". "+q.options.map((o,i)=>"Option "+"ABCD"[i]+": "+o).join(". ");
         speak(txt);}
