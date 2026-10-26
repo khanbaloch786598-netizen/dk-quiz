@@ -302,14 +302,14 @@ Answer: C</textarea>
       <div class="btnrow"><button class="btn" id="testVoiceBtn">🔈 Test voice</button></div>
     </div>
     <div class="card">
-      <h3>🎙 Narration in video (AI voice)</h3>
-      <p class="note">The downloaded video will also speak the questions aloud — intro, every question with its options, and the outro — just like popular quiz videos. The voice is generated inside your browser (free); ticking the box loads the voice engine right away (first use downloads the model once, ~30 MB, then it stays cached in this browser). Each voice starts exactly when its question appears and always finishes before the next question — and the correct answer is spoken at the moment it is revealed, not before.</p>
-      <label class="check"><input type="checkbox" id="aNarr"> Add narration to the exported video</label>
+      <h3>🎙 Voice in video</h3>
+      <p class="note">Voice sirf Preview me sunai deti hai, Basit site ki tarah — device ki awaz sawal, options aur jawab foran parhti hai, baghair model download ke. Video file me awaz nahi hoti, is liye video fast banti hai aur hang nahi hoti. Preview me awaz sunne ke liye upar "Voice reader (Preview only)" me voice select karein.</p>
+      <label class="check"><input type="checkbox" id="aNarr" disabled> Add narration to the exported video (band hai — Preview only)</label>
       <label>Narration voice (English)</label>
-      <select id="aNarrVoice"><option value="af_heart">Heart — female, natural (recommended)</option><option value="af_bella">Bella — female</option><option value="am_adam">Adam — male</option><option value="am_michael">Michael — male</option><option value="bf_emma">Emma — female (UK)</option><option value="bf_isabella">Isabella — female (UK)</option></select>
+      <select id="aNarrVoice" disabled><option value="af_heart">Heart — female, natural (recommended)</option><option value="af_bella">Bella — female</option><option value="am_adam">Adam — male</option><option value="am_michael">Michael — male</option><option value="bf_emma">Emma — female (UK)</option><option value="bf_isabella">Isabella — female (UK)</option></select>
       <label>Narration volume: <span id="aNarrVolV">100%</span></label>
-      <input type="range" id="aNarrVol" min="0" max="100" value="100">
-      <p class="note">Narration works with fast export (Auto / Fast MP4 only). It adds extra time while the voices are generated — the status line shows the progress. If the voice model cannot load, the video is still created without narration.</p>
+      <input type="range" id="aNarrVol" min="0" max="100" value="100" disabled>
+      <p class="note">Export me narration band kar di gayi hai taake 50/100 sawal ki video fast bane aur hang na ho.</p>
       <div id="narrMsg"></div>
     </div>
   </section>
@@ -391,7 +391,7 @@ Answer: B
         <li><b>Fast export</b> builds a real MP4 file (H.264 + AAC) quicker than real time and plays in phone galleries, WhatsApp, YouTube and video editors. It needs a recent Chrome or Edge on a computer or Android. Keep the tab open until it finishes.</li>
         <li><b>Compatibility mode</b> records in real time. Use it only if fast export is not available.</li>
         <li>Clock ticks, sound effects and background music are included in the video file. Pick a free built-in music track, or upload your own MP3 / WAV / M4A file in Audio &amp; Voice.</li>
-        <li>The device voice reads questions aloud in <b>Preview</b>. For a voice inside the downloaded video, turn on <b>🎙 Narration in video</b> in Audio &amp; Voice — the voice is generated in your browser (English, free).</li>
+        <li>The device voice reads questions aloud in <b>Preview</b>, fast, like Basit site. Video file me awaz nahi hoti, is liye export fast hai aur hang nahi hota.</li>
         <li>Available voices depend on your device. Windows, Mac, Android and iPhone each provide their own list.</li>
         <li>For very long videos (100+ questions) use a computer and pick the <b>Small file</b> quality. Phones may run out of memory.</li>
         <li>Download your video before closing the page.</li>
@@ -923,10 +923,7 @@ $("listenBtn").addEventListener("click",()=>{initAudio(false);if(AC.state==="sus
 $("aVoiceType").addEventListener("change",loadVoices);$("aVoiceLang").addEventListener("change",loadVoices);
 $("testVoiceBtn").addEventListener("click",()=>{if($("aVoiceSel").value==="off"){toast("Pehle Voice dropdown se koi voice select karein.");return;}speak("Welcome to DK Quiz. This is the voice preview.");});
 $("aNarr").addEventListener("change",()=>{
-  if(!$("aNarr").checked)return;
-  $("narrMsg").innerHTML=`<div class="note">🎙 Voice engine tayyar ho raha hai…</div>`;
-  loadKokoro().then(()=>{$("narrMsg").innerHTML=`<div class="note">🎙 Voice engine tayyar hai — video banate waqt awaz foran banegi.</div>`;})
-    .catch(()=>{$("narrMsg").innerHTML=`<div class="err">Voice engine load nahi hua — internet check karke dobara tick karein (video phir bhi baghair awaz ke ban jayegi).</div>`;});
+  $("narrMsg").innerHTML=`<div class="note">Voice sirf Preview me hai — video file me awaz nahi hoti, is liye export fast hai aur hang nahi hota.</div>`;
 });
 $("prevBtn").addEventListener("click",()=>runPlayback(null));
 $("stopBtn").addEventListener("click",stopAll);
@@ -1217,10 +1214,9 @@ async function createViaFast(fps,bps){
   const relWL=()=>{if(wl){try{wl.release();}catch(e){}wl=null;}};
   createCancel=false;$("cancelBtn").style.display="";
   narrationItems=[];
-  if($("aNarr").checked&&!$("xMode").value.startsWith("Compatibility")){
-    try{await buildNarration(tl);}
-    catch(e){if(e.message==="cancelled")throw e;toast("Narration nahi ban saki — video baghair awaz ke ban rahi hai.");narrationItems=[];}
-  }
+  /* Narration in exported video is OFF (Basit-like, Preview-only voice).
+     Kokoro is never loaded here, so 50/100-question videos export fast
+     and cannot hang at (1/102). Preview voice (device voice) is untouched. */
   if(narrationItems.length){fitNarrationToTimeline(tl);total=tl.reduce((a,s)=>a+s.dur,0);totalFrames=Math.max(1,Math.round(total*fps));}
   // encode audio — soundtrack rendered in ~30s windows so phones never run out of memory
   let aChunks=null,aCfgOut=null;
