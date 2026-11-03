@@ -11,8 +11,27 @@ self.onmessage=async (e)=>{
   const m=e.data||{};
   if(m.type==="init"){
     try{
-      if(!tts) tts=await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:"q8"});
-      self.postMessage({type:"ready"});
+      if(!tts){
+        /* Try the phone's graphics chip (WebGPU) first — can be several times faster than
+           the normal processor for AI voice. Falls back to the normal path if unavailable. */
+        let device=null;
+        try{
+          if(self.navigator&&self.navigator.gpu){
+            const adapter=await self.navigator.gpu.requestAdapter();
+            if(adapter) device="webgpu";
+          }
+        }catch(e){device=null;}
+        const opts={dtype:"q8"};if(device)opts.device=device;
+        try{
+          tts=await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",opts);
+        }catch(e){
+          if(device){tts=await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:"q8"});device=null;}
+          else throw e;
+        }
+        self.postMessage({type:"ready",device:device||"cpu"});
+      }else{
+        self.postMessage({type:"ready",device:"cpu"});
+      }
     }catch(err){
       self.postMessage({type:"error",error:String((err&&err.message)||err)});
     }
