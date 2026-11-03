@@ -1016,7 +1016,7 @@ async function renderOfflineAudio(tl,total,t0w=0,t1w=total){
    {type:"result",id,ok,pcm(Float32Array),sr}. See kokoro-voice-worker.js. */
 let narrationItems=[],narrVol=1;
 const narrCache=new Map();
-let kvWorker=null,kvReadyPromise=null,kvMsgId=0;
+let kvWorker=null,kvReadyPromise=null,kvMsgId=0,kvDevice="cpu";
 const kvPending=new Map();
 function kvShutdown(){
   kvReadyPromise=null;
@@ -1034,7 +1034,7 @@ function loadKokoroWorker(){
       catch(e){done(false,e);return;}
       kvWorker.onmessage=(e)=>{
         const m=e.data||{};
-        if(m.type==="ready")done(true);
+        if(m.type==="ready"){kvDevice=m.device||"cpu";done(true);}
         else if(m.type==="error")done(false,new Error(m.error||"worker"));
         else if(m.type==="result"){
           const p=kvPending.get(m.id);kvPending.delete(m.id);
@@ -1086,6 +1086,12 @@ async function buildNarration(tl){
   for(let i=0;i<items.length;i++){
     if(createCancel){kvShutdown();throw new Error("cancelled");}
     const it=items[i];if(!it.text)continue;
+    /* Per-part live timer: proves the part is grinding (not stuck) and shows how long
+       this phone takes per part — neural voice is CPU-heavy on mobiles. */
+    const t0=Date.now();
+    const tick=setInterval(()=>{
+      $("status").textContent=`🎙 Natural awaz bana raha hai… (${i+1}/${items.length}) — is part ko ${Math.round((Date.now()-t0)/1000)} sec hue, kaam chal raha hai`;
+    },1000);
     $("status").textContent=`🎙 Natural awaz bana raha hai… (${i+1}/${items.length}) — page hang nahi hogi`;
     const key="kv|"+voice+"|"+it.text;
     let d48=narrCache.get(key);
@@ -1093,17 +1099,19 @@ async function buildNarration(tl){
       /* Heavy inference runs in the worker; the page thread only waits. Timeout per clip
          guards a stuck worker without ever freezing the UI. */
       try{
-        const {pcm,sr}=await kvSpeak(it.text,voice,120000);
+        const {pcm,sr}=await kvSpeak(it.text,voice,180000);
         const n=Math.round(pcm.length*48000/sr);d48=new Float32Array(n);
         for(let j=0;j<n;j++){const pos=j*sr/48000,i0=Math.floor(pos),f=pos-i0;d48[j]=pcm[i0]*(1-f)+pcm[Math.min(i0+1,pcm.length-1)]*f;}
         narrCache.set(key,d48);consecFail=0;
       }catch(e){
+        clearInterval(tick);
         if(createCancel){kvShutdown();throw new Error("cancelled");}
         skipped++;consecFail++;
         if(consecFail>=3){kvShutdown();throw new Error("narration-failed");}
         continue;
       }
     }
+    clearInterval(tick);
     out.push({kind:it.kind,qi:it.qi,text:it.text,data:d48,dur:d48.length/48000});
   }
   if(!out.length){kvShutdown();throw new Error("narration-failed");}
