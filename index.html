@@ -302,14 +302,12 @@ Answer: C</textarea>
       <div class="btnrow"><button class="btn" id="testVoiceBtn">🔈 Test voice</button></div>
     </div>
     <div class="card">
-      <h3>🎙 Voice in video</h3>
-      <p class="note">Voice sirf Preview me sunai deti hai, Basit site ki tarah — device ki awaz sawal, options aur jawab foran parhti hai, baghair model download ke. Video file me awaz nahi hoti, is liye video fast banti hai aur hang nahi hoti. Preview me awaz sunne ke liye upar "Voice reader (Preview only)" me voice select karein.</p>
-      <label class="check"><input type="checkbox" id="aNarr" disabled> Add narration to the exported video (band hai — Preview only)</label>
-      <label>Narration voice (English)</label>
-      <select id="aNarrVoice" disabled><option value="af_heart">Heart — female, natural (recommended)</option><option value="af_bella">Bella — female</option><option value="am_adam">Adam — male</option><option value="am_michael">Michael — male</option><option value="bf_emma">Emma — female (UK)</option><option value="bf_isabella">Isabella — female (UK)</option></select>
-      <label>Narration volume: <span id="aNarrVolV">100%</span></label>
-      <input type="range" id="aNarrVol" min="0" max="100" value="100" disabled>
-      <p class="note">Export me narration band kar di gayi hai taake 50/100 sawal ki video fast bane aur hang na ho.</p>
+      <h3>🎙 Voice in video (light)</h3>
+      <p class="note">Download hone wali video me bhi awaz aayegi — halki built-in voice, koi bara model download nahi (~1.6MB pehli dafa, phir browser me cached), aur page hang nahi karegi. Note: awaz thori robotic hogi (natural nahi). Sawal shuru me aur sahi jawab reveal par parha jayega.</p>
+      <label class="check"><input type="checkbox" id="aNarr"> Add voice to the exported video</label>
+      <label>Voice volume: <span id="aNarrVolV">100%</span></label>
+      <input type="range" id="aNarrVol" min="0" max="100" value="100">
+      <p class="note">Voice sirf fast export (Auto / Fast MP4) me aati hai. Awazein banne me thora extra waqt lagta hai — status line par progress nazar aayegi.</p>
       <div id="narrMsg"></div>
     </div>
   </section>
@@ -934,7 +932,10 @@ $("listenBtn").addEventListener("click",()=>{initAudio(false);if(AC.state==="sus
 $("aVoiceType").addEventListener("change",loadVoices);$("aVoiceLang").addEventListener("change",loadVoices);
 $("testVoiceBtn").addEventListener("click",()=>{if($("aVoiceSel").value==="off"){toast("Pehle Voice dropdown se koi voice select karein.");return;}speak("Welcome to DK Quiz. This is the voice preview.");});
 $("aNarr").addEventListener("change",()=>{
-  $("narrMsg").innerHTML=`<div class="note">Voice sirf Preview me hai — video file me awaz nahi hoti, is liye export fast hai aur hang nahi hota.</div>`;
+  if(!$("aNarr").checked)return;
+  $("narrMsg").innerHTML=`<div class="note">🎙 Voice tayyar ho rahi hai…</div>`;
+  loadMeSpeak().then(()=>{$("narrMsg").innerHTML=`<div class="note">🎙 Voice tayyar hai — video banate waqt awaz foran banegi.</div>`;})
+    .catch(()=>{$("narrMsg").innerHTML=`<div class="err">Voice load nahi hui — internet check karke dobara tick karein (video phir bhi baghair awaz ke ban jayegi).</div>`;});
 });
 $("prevBtn").addEventListener("click",()=>runPlayback(null));
 $("stopBtn").addEventListener("click",stopAll);
@@ -1005,39 +1006,56 @@ async function renderOfflineAudio(tl,total,t0w=0,t1w=total){
   return await oc.startRendering();
 }
 
-/* ---------- video narration (Kokoro, generated in-browser, mixed into the export) ---------- */
+/* ---------- video narration (light meSpeak voice, generated in-browser, mixed into the export) ----------
+   meSpeak = tiny eSpeak port (~1.6MB total, cached after first load). NO neural model, NO 30MB download.
+   Each speak() renders in a fraction of a second and we yield to the UI between clips, so the page
+   never hangs (this replaces the old Kokoro engine, which blocked the main thread and hung mobiles).
+   Voice is robotic by design — "halki awaz". Engine files live in ./mespeak/ on this same site. */
 let narrationItems=[],narrVol=1;
 const narrCache=new Map();
-let kokoroPromise=null;
-function loadKokoro(){
-  if(!kokoroPromise){
-    kokoroPromise=(async()=>{
-      const {KokoroTTS}=await import("https://cdn.jsdelivr.net/npm/kokoro-js/+esm");
-      return KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:"q8"});
-    })();
-    kokoroPromise.catch(()=>{kokoroPromise=null;});
+let meSpeakPromise=null;
+function loadMeSpeak(){
+  if(!meSpeakPromise){
+    meSpeakPromise=new Promise((resolve,reject)=>{
+      let settled=false;
+      const timer=setTimeout(()=>{if(!settled){settled=true;reject(new Error("timeout"));}},90000);
+      const done=(ok,err)=>{if(!settled){settled=true;clearTimeout(timer);ok?resolve():reject(err||new Error("voice"));}};
+      const s=document.createElement("script");
+      s.src="mespeak/mespeak.js";
+      s.onload=()=>{
+        try{
+          meSpeak.loadVoice("voices/en/en-us.json",function(ok,msg){
+            done(!!ok&&meSpeak.isVoiceLoaded(),new Error("voice load: "+(msg||"failed")));
+          });
+        }catch(e){done(false,e);}
+      };
+      s.onerror=()=>done(false,new Error("script"));
+      document.head.appendChild(s);
+    });
+    meSpeakPromise.catch(()=>{meSpeakPromise=null;});
   }
-  return kokoroPromise;
+  return meSpeakPromise;
 }
-/* Race a promise against a timeout and against the Cancel button. Kokoro's
-   generate() has no abort: without this, one slow clip hangs the page forever
-   at (1/102) and Cancel does nothing until that clip finishes. On timeout or
-   Cancel we abandon that clip's promise and let the caller fall back (video
-   without narration) or stop, instead of hanging. */
-function raceWithCancel(p, timeoutMs){
-  return new Promise((resolve, reject)=>{
-    let done=false;
-    const timer=setTimeout(()=>{if(!done){done=true;clearInterval(iv);reject(new Error("timeout"));}}, timeoutMs);
-    const iv=setInterval(()=>{if(createCancel){if(!done){done=true;clearTimeout(timer);clearInterval(iv);reject(new Error("cancelled"));}}},500);
-    p.then(v=>{if(!done){done=true;clearTimeout(timer);clearInterval(iv);resolve(v);}},
-           e=>{if(!done){done=true;clearTimeout(timer);clearInterval(iv);reject(e);}});
-  });
+/* Parse the WAV meSpeak returns (16-bit mono @22050Hz) into float samples. Header parsed, not assumed. */
+function meSpeakWavToF32(arr){
+  const b=arr instanceof Uint8Array?arr:Uint8Array.from(arr);
+  const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  const tag=o=>String.fromCharCode(b[o],b[o+1],b[o+2],b[o+3]);
+  if(tag(0)!=="RIFF"||tag(8)!=="WAVE")throw new Error("wav");
+  const bits=dv.getUint16(34,true),sr=dv.getUint32(24,true);
+  let off=12+8+dv.getUint32(16,true);
+  while(tag(off)!=="data"){const ln=dv.getUint32(off+4,true);off+=8+ln;if(off+8>b.length)throw new Error("wavdata");}
+  const dlen=dv.getUint32(off+4,true);off+=8;
+  const n=bits===16?Math.floor(dlen/2):dlen;
+  const out=new Float32Array(n);
+  if(bits===16)for(let i=0;i<n;i++)out[i]=dv.getInt16(off+2*i,true)/32768;
+  else for(let i=0;i<n;i++)out[i]=(b[off+i]-128)/128;
+  return {data:out,sr:sr||22050};
 }
 async function buildNarration(tl){
   const s=settings();
-  $("status").textContent="🎙 Voice model load ho raha hai (pehli dafa ~30 MB download)…";
-  const tts=await raceWithCancel(loadKokoro(), 120000);
-  const voice=$("aNarrVoice").value;
+  $("status").textContent="🎙 Voice tayyar ho rahi hai…";
+  await loadMeSpeak();
   narrVol=num("aNarrVol",100)/100;
   const read=$("aRead").value;
   const items=[];let acc=0;
@@ -1055,38 +1073,29 @@ async function buildNarration(tl){
     }
     else if(seg.kind==="outro"){items.push({kind:"outro",start:segStart,text:(s.outroTitle+" "+s.outroSub).trim()});}
   }
-  if(items.length>40)toast(`Zyada sawal: ${items.length} awazein banengi. Phone par pehli awaz sab se slow hoti hai, tab band na karein, screen on rakhein.`);
-  if(narrCache.size>200)narrCache.clear();
-  const out=[];let skipped=0,consecFail=0;
+  const out=[];
   for(let i=0;i<items.length;i++){
     if(createCancel)throw new Error("cancelled");
     const it=items[i];if(!it.text)continue;
-    const key=voice+"|"+it.text;
+    $("status").textContent=`🎙 Awaz bana raha hai… (${i+1}/${items.length})`;
+    const key="ms|"+it.text;
     let d48=narrCache.get(key);
     if(!d48){
-      const t0=Date.now();
-      const tick=setInterval(()=>{$("status").textContent=`🎙 Awaz bana raha hai… (${i+1}/${items.length}) — is awaz me ${Math.round((Date.now()-t0)/1000)} sec lage, tab band na karein`;},1000);
-      try{
-        $("status").textContent=`🎙 Awaz bana raha hai… (${i+1}/${items.length})`;
-        const audio=await raceWithCancel(tts.generate(it.text,{voice}), 180000);
-        const pcm=audio.audio,srIn=audio.sampling_rate||24000;
-        const n=Math.round(pcm.length*48000/srIn);d48=new Float32Array(n);
-        for(let j=0;j<n;j++){const pos=j*srIn/48000,i0=Math.floor(pos),f=pos-i0;d48[j]=pcm[i0]*(1-f)+pcm[Math.min(i0+1,pcm.length-1)]*f;}
-        narrCache.set(key,d48);consecFail=0;
-      }catch(e){
-        clearInterval(tick);
-        if(e.message==="cancelled")throw e;
-        if(e.message==="timeout")throw new Error("narration-timeout");
-        skipped++;consecFail++;
-        if(consecFail>=3)throw new Error("narration-failed");
-        continue;
-      }
-      clearInterval(tick);
+      /* meSpeak renders fast (<1s per clip, no playback, no speakers). Callback form is required
+         to get the WAV data; wrapped in a promise so sync and async cores both work. */
+      const wavArr=await new Promise((resolve,reject)=>{
+        try{meSpeak.speak(it.text,{rawdata:"array",speed:175},(ok,id,data)=>ok?resolve(data):reject(new Error("speak")));}catch(e){reject(e);}
+      });
+      if(!wavArr||!wavArr.length)throw new Error("speak-empty");
+      const {data,sr}=meSpeakWavToF32(wavArr);
+      const n=Math.round(data.length*48000/sr);d48=new Float32Array(n);
+      for(let j=0;j<n;j++){const pos=j*sr/48000,i0=Math.floor(pos),f=pos-i0;d48[j]=data[i0]*(1-f)+data[Math.min(i0+1,data.length-1)]*f;}
+      narrCache.set(key,d48);
     }
     out.push({kind:it.kind,qi:it.qi,text:it.text,data:d48,dur:d48.length/48000});
+    await new Promise(r=>setTimeout(r,0)); /* yield between clips: status paints, page never hangs */
   }
   if(!out.length)throw new Error("narration-failed");
-  if(skipped)toast(`Narration: ${skipped} awazein skip hui, baqi awaz ke sath video ban rahi hai.`);
   narrationItems=out;
   return out;
 }
@@ -1225,9 +1234,10 @@ async function createViaFast(fps,bps){
   const relWL=()=>{if(wl){try{wl.release();}catch(e){}wl=null;}};
   createCancel=false;$("cancelBtn").style.display="";
   narrationItems=[];
-  /* Narration in exported video is OFF (Basit-like, Preview-only voice).
-     Kokoro is never loaded here, so 50/100-question videos export fast
-     and cannot hang at (1/102). Preview voice (device voice) is untouched. */
+  if($("aNarr").checked&&!$("xMode").value.startsWith("Compatibility")){
+    try{await buildNarration(tl);}
+    catch(e){if(e.message==="cancelled")throw e;toast("Voice nahi ban saki — video baghair awaz ke ban rahi hai.");narrationItems=[];}
+  }
   if(narrationItems.length){fitNarrationToTimeline(tl);total=tl.reduce((a,s)=>a+s.dur,0);totalFrames=Math.max(1,Math.round(total*fps));}
   // encode audio — soundtrack rendered in ~30s windows so phones never run out of memory
   let aChunks=null,aCfgOut=null;
