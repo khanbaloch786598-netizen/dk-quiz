@@ -1030,7 +1030,11 @@ function loadMeSpeak(){
         }catch(e){done(false,e);}
       };
       s.onerror=()=>done(false,new Error("script"));
-      document.head.appendChild(s);
+      /* NOTE: append to BODY, not head. mespeak.js finds its own folder via the LAST <script>
+         tag in the document when document.currentScript is null (dynamic inject); the page's
+         own inline script sits in body, so a head-append would resolve the engine to the
+         wrong path and the voice would never load. */
+      document.body.appendChild(s);
     });
     meSpeakPromise.catch(()=>{meSpeakPromise=null;});
   }
