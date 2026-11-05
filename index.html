@@ -290,7 +290,7 @@ Answer: C</textarea>
       <label>Voice type</label>
       <select id="aVoiceType"><option value="all">All voices</option><option value="female">Female</option><option value="male">Male</option></select>
       <label>Language</label>
-      <select id="aVoiceLang"><option value="all">All languages</option><option value="en">English</option><option value="hi">Hindi</option><option value="ur">Urdu</option><option value="ar">Arabic</option></select>
+      <select id="aVoiceLang"><option value="all">All languages</option><option value="en" selected>English</option><option value="hi">Hindi</option><option value="ur">Urdu</option><option value="ar">Arabic</option></select>
       <label>Voice</label>
       <select id="aVoiceSel"><option value="off">Off (no voice)</option></select>
       <div id="voiceMsg"></div>
@@ -832,6 +832,14 @@ function loadVoices(){
       const o=document.createElement("option");o.value=i;o.textContent=`${v.name} (${v.lang})`;sel.appendChild(o);});
   }
   if([...sel.options].some(o=>o.value===cur))sel.value=cur;
+  /* Auto-pick the first listed voice (English by default) so Preview speaks English
+     out of the box. Before this, the list defaulted to "All languages" and the first
+     voice on many phones is Urdu/Hindi — so Preview sounded like "some other language".
+     A manual pick is kept (only auto-picks when still Off). */
+  if(sel.value==="off"){
+    const first=[...sel.options].find(o=>o.value!=="off");
+    if(first)sel.value=first.value;
+  }
   $("voiceMsg").innerHTML=allVoices.length?"":`<div class="err">No voices found on this device. Voice reader is unavailable here.</div>`;
 }
 if("speechSynthesis" in window){speechSynthesis.onvoiceschanged=loadVoices;}
